@@ -39,6 +39,9 @@ def prepDfs(args):
     if naI != None:
         dfIntensities = pd.DataFrame(dfIntensities[dfIntensities.columns[ : naI - 1]])
     dfPeakData = pd.DataFrame(dft[dft.columns[ : hIndex]])
+    dfPeakData['Peak Name'] = dfPeakData['Average Mz'] + "@" + dfPeakData['Average Rt(min)'] 
+    dfIntensities.index = dfPeakData['Peak Name'].values
+    dfIntensities = dfIntensities.T
 
     h = [x[0] for x in headerLines]
     h[-1] = 'Sample'
@@ -55,8 +58,10 @@ def prepDfs(args):
         if m:
             groups.append('Sample')
         else:
-            groups.append(sName)
+            groups.append(sName.replace("sQC01", "sQC"))
     dfMeta['Group'] = groups
+    dfMeta = dfMeta.loc[(dfMeta['Batch'].astype(str) + dfMeta['Injection'].astype(str)).sort_values().index]
+    dfIntensities = dfIntensities.loc[dfMeta['Sample']]
     return(dfMeta, dfPeakData, dfIntensities)
 
 
@@ -67,5 +72,5 @@ if __name__ == '__main__':
     inPref = os.path.splitext(os.path.basename(args.inFile))[0]
     dfMeta.to_csv(os.path.join(args.outDir, f"{inPref}_Meta.tsv"), sep = '\t', index = False)
     dfPeakData.to_csv(os.path.join(args.outDir, f"{inPref}_PeakData.tsv"), sep = '\t', index = False)
-    dfIntensities.to_csv(os.path.join(args.outDir, f"{inPref}_Intensities.tsv"), sep = '\t', index = False)
+    dfIntensities.to_csv(os.path.join(args.outDir, f"{inPref}_Intensities.tsv"), sep = '\t')
     
