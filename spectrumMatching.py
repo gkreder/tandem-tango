@@ -3,7 +3,6 @@ import sys
 import os
 import numpy as np
 import pyopenms as pyms
-import pyteomics
 from tqdm.auto import tqdm
 import molmass
 import pandas as pd
@@ -32,12 +31,12 @@ parser.add_argument("--quasiY", required = True, type = float)
 
 # Optional with defaults
 parser.add_argument("--gainControl", default = False )
-parser.add_argument("--absCutoff", default = 50)
-parser.add_argument("--relCutoff", default = 0)
-parser.add_argument("--resClearance", default = 0.02)
-parser.add_argument("--matchAcc", default = 0.01)
+parser.add_argument("--absCutoff", default = 50, type = float)
+parser.add_argument("--relCutoff", default = 0, type = float)
+parser.add_argument("--resClearance", default = 0.02, type = float)
+parser.add_argument("--matchAcc", default = 0.01, type = float)
 parser.add_argument("--pltTitle", default = "")
-parser.add_argument("--subFormulaTol", default = 0.01)
+parser.add_argument("--subFormulaTol", default = 0.01, type = float)
 
 # Optional with no defaults
 parser.add_argument("--parentFormula", default = None)
@@ -117,16 +116,19 @@ for i_d, d in enumerate(data):
     
     print("Filtering peaks....")
     # Absolute intensity cutoff
-    d['intensities'] = d['intensities'][np.where(d['intensities'] >= args.absCutoff)]
-    d['mzs'] = d['mzs'][np.where(d['intensities'] >= args.absCutoff)]
+    indices = np.where(d['intensities'] >= args.absCutoff)
+    d['intensities'] = d['intensities'][indices]
+    d['mzs'] = d['mzs'][indices]
 
     # Eliminating peaks with m/z < parent peak m/z
-    d['mzs'] = d['mzs'][np.where(d['mzs'] <= args.parentMZ)]
-    d['intensities'] = d['intensities'][np.where(d['mzs'] <= args.parentMZ)]
+    indices = np.where(d['mzs'] <= args.parentMZ)
+    d['mzs'] = d['mzs'][indices]
+    d['intensities'] = d['intensities'][indices]
 
     # Eliminate all paeks with normalized intensity < relative intensity cutoff
-    d['intensities'] = d['intensities'][np.where((d['intensities'] / max(d['intensities'])) >= args.relCutoff)]
-    d['mzs'] = d['mzs'][np.where((d['intensities'] / max(d['intensities'])) >= args.relCutoff)]
+    indices = np.where((d['intensities'] / max(d['intensities'])) >= args.relCutoff)
+    d['intensities'] = d['intensities'][indices]
+    d['mzs'] = d['mzs'][indices]
 
     # Sort remaining peaks in spectrum from most to least intense
     sOrder = np.argsort(d['intensities'])[::-1]
@@ -163,7 +165,7 @@ for i_d, d in enumerate(data):
         for i, mz in enumerate(tqdm(d['mzs'])):
             intensity = d['intensities'][i]
             form = molmass.Formula(args.parentFormula).formula
-            bestForm, thMass, error = fd.findBestForm(mz, form, toleranceDa = args.subFormulaTol)
+            bestForm, thMass, error = formulaUtils.findBestForm(mz, form, toleranceDa = args.subFormulaTol)
             if bestForm == None:
                 continue
             newMzs.append(mz)
@@ -190,11 +192,15 @@ for d in data:
 
 df = pd.merge_asof(dfs[0], dfs[1], tolerance = 0.005, on = 'mz_join', suffixes = ('_A', '_B'), direction = 'nearest').drop(columns = 'mz_join')
 
+if args.parentFormula != None:
+    df = df.dropna(subset = ['formula_A', 'formula_B'])
+
 
 
 # Convert all peaks to "quasicounts" by dividing the intensity by gamma_i(1 + delta)
 for suf in ['A', 'B']:
     df[f"quasi_{suf}"] = df[f'intensity_{suf}'] / ( args.quasiX *  ( np.power(df[f'mz_{suf}'], args.quasiY) ) )
+
 
 
 
@@ -225,7 +231,7 @@ for join in stats.keys():
     stats[join]['pval_D2'] = pval_D2
 
     # Calculate G^2
-
+    G2, pval_G2 = calc_G2(a_i, b_i, S_A, S_B)
     stats[join]['G2'] = G2
     stats[join]['pval_G2'] = pval_G2
 
@@ -243,6 +249,10 @@ for join in stats.keys():
 
     PP_pA = np.exp(H_pA)
     PP_pB = np.exp(H_pB)
+    stats[join]['Entropy_A'] = H_pA
+    stats[join]['Entropy_B'] = H_pB
+    stats[join]['Perplexity_A'] = PP_pA
+    stats[join]['Perplexity_B'] = PP_pB
 
 
     # Jensen-Shannon divergence
@@ -268,6 +278,7 @@ for join in stats.keys():
 
 
 jaccard = jaccardTemp['Intersection'] / jaccardTemp['Union']
+stats['Union']['Jaccard'] = jaccard 
 
 
 
@@ -275,10 +286,15 @@ jaccard = jaccardTemp['Intersection'] / jaccardTemp['Union']
 dfOut = df.rename(columns = {'mz_A' : 'm/z_a',
 'mz_B' : 'm/z_b',
 "intensity_A" : "I_a",
-"Intensity_B" : "I_b",
+"intensity_B" : "I_b",
 "quasi_A" : "a",
 "quasi_B" : "b"
 })
+
+if args.parentFormula == None:
+    dfOut = dfOut[['m/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D2_Union", "G2_Union", "D2_Intersection"]]
+else:
+    dfOut = dfOut[['formula_A', 'formula_B', 'm/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D2_Union", "G2_Union", "D2_Intersection"]]
 
 
 dfStats = pd.DataFrame(stats)
@@ -288,8 +304,11 @@ dfStats.to_excel(writer, sheet_name = "Stats")
 dfOut.to_excel(writer, sheet_name = "Spectra", index = False)
 writer.save()
 
+if args.parentFormula != None:
+    fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], df['formula_A'], df['formula_B'])
+else:
+    fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], None, None)
 
-fig, ax = pu.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], df['formula_A'], df['formula_B'])
 plt.title = args.pltTitle
 plt.savefig(args.outPlot, bbox_inches = 'tight')
 
