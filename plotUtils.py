@@ -44,9 +44,9 @@ def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, f
             # break
         # texts.append(plt.text(row['mz_A'], row['intensity_A'] + tAdjust, row['formula_A'], ha = 'center'))
         if formula_a != None:
-            texts.append(plt.text(mz_a, int_a + tAdjust, formula_a, ha = 'center'))
+            texts.append(plt.text(mz_a, int_a, formula_a, ha = 'center'))
         if formula_b != None:
-            texts.append(plt.text(mz_b, -int_b - tAdjust, formula_b, ha = 'center'))
+            texts.append(plt.text(mz_b, -int_b, formula_b, ha = 'center'))
         # texts.append(plt.text(row['mz_B'], - row['intensity_B'] - tAdjust, row['formula_B'], ha = 'center'))
         # texts.append(plt.text(row['mz_B'], - row['intensity_B'], row['formula_B'], ha = 'center'))
         # break
