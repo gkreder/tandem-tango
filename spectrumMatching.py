@@ -310,6 +310,6 @@ else:
     fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], None, None)
 
 plt.title = args.pltTitle
-plt.savefig(args.outPlot) # , bbox_inches = 'tight'
+plt.savefig(args.outPlot, bbox_inches = 'tight') 
 
 
