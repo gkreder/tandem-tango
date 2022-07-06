@@ -5,7 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from adjustText import adjust_text
-from matplotlib.ticker import ScalarFormatter
+from matplotlib.ticker import ScalarFormatter, FuncFormatter
+import matplotlib.ticker 
 # -------------------------------------------------------
 
 def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, formulas_b = None):
@@ -16,15 +17,24 @@ def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, f
     ax.axhline(0, 0, 1, color = 'black', alpha = 0.75, linewidth = 0.5)
 
     fig.canvas.draw()
-    # labels = [item.get_text().replace('-', '').replace('−', '') for item in ax.get_yticklabels()]
-    # ax.set_yticklabels(labels)
-    ax.set_yticklabels([abs(x) for x in ax.get_yticks()])
-    ax.get_yaxis().set_major_formatter(ScalarFormatter())
-    plt.ticklabel_format(style='sci', axis='y') # , scilimits=(0,0)
+
+    @FuncFormatter
+    def my_formatter(x, pos):
+        return( "{:.2e}".format(abs(x)))
+    ax.get_yaxis().set_major_formatter(my_formatter)
+    # ax.set_yticklabels([abs(x) for x in ax.get_yticks()])
+    # ax.get_yaxis().set_major_formatter(ScalarFormatter(format_data = lambda x : abs(x)))
+    # plt.ticklabel_format(axis = 'y', style = 'sci',  scilimits=(0,0))
 
 
-    # y1, y2 = ax.get_ylim()
-    ax.set_ylim([1.1 * x for x in ax.get_ylim()])
+    # ax.get_yaxis().get_major_formatter().set_scientific(True)
+    # ax.get_yaxis().set_major_formatter(ScalarFormatter())
+    # ax.ticklabel_format(style = 'sci', axis = 'y')
+    # plt.ticklabel_format(style='sci', axis='y') # , scilimits=(0,0)
+
+
+    # # y1, y2 = ax.get_ylim()
+    # ax.set_ylim([1.1 * x for x in ax.get_ylim()])
     ylim = ax.get_ylim()
     tAdjust = ( ylim[1] - ylim[0] ) * 0.02
 
@@ -52,6 +62,9 @@ def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, f
         # break
 
     adjust_text(texts, arrowprops=dict(arrowstyle='-', color='black'), ha = 'center') # , add_objects = [vlinesA, vlinesB]
+
+
+
     plt.xlabel('m/z')
     plt.ylabel('Intensity')
     return(fig, ax)
