@@ -9,32 +9,27 @@ from matplotlib.ticker import ScalarFormatter, FuncFormatter
 import matplotlib.ticker 
 # -------------------------------------------------------
 
-def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, formulas_b = None):
+def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, formulas_b = None, normalize = True, rotation = 90):
+    plt.rcParams['font.size'] = 16
     fig, ax = plt.subplots(figsize = (12,9))
     # plt.stem(df['mz_A'], df['intensity_A'], linefmt = 'b-', markerfmt = ' ', basefmt = ' ')
-    vlinesA = ax.vlines(mzs_a, 0, intensities_a, color = '#67a9cf', alpha = 0.9)
-    vlinesB = ax.vlines(mzs_b, 0, -intensities_b, color = '#ef8a62', alpha = 0.9)
+    if normalize:
+        intensities_a = intensities_a / intensities_a.max()
+        intensities_b = intensities_b / intensities_b.max()
+        # intensities_a = np.array([x / max(intensities_a) for x in intensities_a])
+        # intensities_b = np.array([x / max(intensities_b) for x in intensities_b])
+    vlinesA = ax.vlines(mzs_a, 0, intensities_a, color = '#67a9cf', alpha = 0.9, linewidth = 0.75)
+    vlinesB = ax.vlines(mzs_b, 0, -intensities_b, color = '#ef8a62', alpha = 0.9, linewidth = 0.75)
     ax.axhline(0, 0, 1, color = 'black', alpha = 0.75, linewidth = 0.5)
 
     fig.canvas.draw()
 
-    @FuncFormatter
-    def my_formatter(x, pos):
-        return( "{:.2e}".format(abs(x)))
-    ax.get_yaxis().set_major_formatter(my_formatter)
-    # ax.set_yticklabels([abs(x) for x in ax.get_yticks()])
-    # ax.get_yaxis().set_major_formatter(ScalarFormatter(format_data = lambda x : abs(x)))
-    # plt.ticklabel_format(axis = 'y', style = 'sci',  scilimits=(0,0))
-
-
-    # ax.get_yaxis().get_major_formatter().set_scientific(True)
-    # ax.get_yaxis().set_major_formatter(ScalarFormatter())
-    # ax.ticklabel_format(style = 'sci', axis = 'y')
-    # plt.ticklabel_format(style='sci', axis='y') # , scilimits=(0,0)
-
-
-    # # y1, y2 = ax.get_ylim()
-    # ax.set_ylim([1.1 * x for x in ax.get_ylim()])
+    if normalize:
+        @FuncFormatter
+        def my_formatter(x, pos):
+            return( "{:.2e}".format(abs(x)))
+        ax.get_yaxis().set_major_formatter(my_formatter)
+    
     ylim = ax.get_ylim()
     tAdjust = ( ylim[1] - ylim[0] ) * 0.02
 
@@ -54,9 +49,9 @@ def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, f
             # break
         # texts.append(plt.text(row['mz_A'], row['intensity_A'] + tAdjust, row['formula_A'], ha = 'center'))
         if formula_a != None:
-            texts.append(plt.text(mz_a, int_a, formula_a, ha = 'center'))
+            texts.append(plt.text(mz_a, int_a, formula_a, ha = 'center', rotation = rotation))
         if formula_b != None:
-            texts.append(plt.text(mz_b, -int_b, formula_b, ha = 'center'))
+            texts.append(plt.text(mz_b, -int_b, formula_b, ha = 'center', rotation = rotation))
         # texts.append(plt.text(row['mz_B'], - row['intensity_B'] - tAdjust, row['formula_B'], ha = 'center'))
         # texts.append(plt.text(row['mz_B'], - row['intensity_B'], row['formula_B'], ha = 'center'))
         # break

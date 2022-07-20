@@ -320,10 +320,11 @@ dfStats.to_excel(writer, sheet_name = "Stats")
 dfOut.to_excel(writer, sheet_name = "Spectra", index = False)
 writer.save()
 
-if args.parentFormula != None:
-    fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], df['formula_A'], df['formula_B'])
-else:
-    fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], None, None)
+# if args.parentFormula != None:
+#     fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], df['formula_A'], df['formula_B'], normalize = True)
+# else:
+#     fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], None, None, normalize = True)
+fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], None, None, normalize = True)
 
 plt.title = args.pltTitle
 plt.savefig(args.outPlot, bbox_inches = 'tight') 
