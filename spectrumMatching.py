@@ -28,6 +28,8 @@ parser.add_argument("--outFile", required = True)
 parser.add_argument("--outPlot", required = True)
 parser.add_argument("--quasiX", required = True, type = float)
 parser.add_argument("--quasiY", required = True, type = float)
+# Agilent (MH) starts at 1, MsConvert starts at 0. So Agilent index of 100 = mzML index of 99
+parser.add_argument("--indexFormat", choices = ['Agilent', 'MsConvert'], required = True)
 
 # Optional with defaults
 parser.add_argument("--gainControl", default = False )
@@ -70,6 +72,11 @@ if args.matchAcc > ( args.resClearance * 0.5):
 
 if args.quasiY > 0:
     sys.exit('Error - quasiY must be a non-positive number')
+
+
+if args.indexFormat == 'Agilent':
+    args.index1 = args.index1 - 1
+    args.index2 = args.index2 - 1
 
 
 
@@ -187,14 +194,18 @@ for d in data:
         df['m/z_calculated'] = d['formulaMasses']
     df = df.sort_values(by = 'mz').reset_index(drop = True)
     df['mz_join'] = df['mz']
+    if args.parentFormula != None:
+        df = df = df.dropna(subset = [f'formula'])
     dfs.append(df)
 
 
 df = pd.merge_asof(dfs[0], dfs[1], tolerance = 0.005, on = 'mz_join', suffixes = ('_A', '_B'), direction = 'nearest').drop(columns = 'mz_join')
 
-if args.parentFormula != None:
-    df = df.dropna(subset = ['formula_A', 'formula_B'])
-
+for i, suf in enumerate(['A', 'B']):
+    dft = dfs[i]
+    dfRem = dft[~dft['mz'].isin(df[f'mz_{suf}'])]
+    dfRem = dfRem.rename(columns = {x : f"{x}_{suf}" for x in ['mz', 'intensity', 'formula', 'm/z_calculated']}).drop(columns = 'mz_join')
+    df = pd.concat([df, dfRem])
 
 
 # Convert all peaks to "quasicounts" by dividing the intensity by gamma_i(1 + delta)
@@ -212,8 +223,8 @@ for join in stats.keys():
     elif join == 'Intersection':
         dfC = df.dropna(subset = ['mz_A', 'mz_B'])
     
-    df[f"D2_{join}"] = None
-    df[f"G2_{join}"] = None
+    df[f"D^2_{join}"] = None
+    df[f"G^2_{join}"] = None
     S_A = dfC['intensity_A'].sum()
     S_B = dfC['intensity_B'].sum()
 
@@ -224,16 +235,20 @@ for join in stats.keys():
     b_i = dfC['quasi_B']
     M = dfC.shape[0]
     jaccardTemp[join] = M
+    stats[join]['quasi_A'] = dfC['quasi_A'].sum()
+    stats[join]['quasi_B'] = dfC['quasi_B'].sum()
+    stats[join]['M'] = M
+    
 
     # Calculate D^2
     D2, pval_D2 = calc_D2(a_i, b_i, S_A, S_B)
-    stats[join]['D2'] = D2
-    stats[join]['pval_D2'] = pval_D2
+    stats[join]['D^2'] = D2
+    stats[join]['pval_D^2'] = pval_D2
 
     # Calculate G^2
     G2, pval_G2 = calc_G2(a_i, b_i, S_A, S_B)
-    stats[join]['G2'] = G2
-    stats[join]['pval_G2'] = pval_G2
+    stats[join]['G^2'] = G2
+    stats[join]['pval_G^2'] = pval_G2
 
 
     p_Ai = a_i / S_A
@@ -265,16 +280,17 @@ for join in stats.keys():
         return(np.sqrt( np.power( x, 2 ).sum() ) )
     num = (p_Ai * p_Bi).sum()
     denom = sqF(p_Ai) * sqF(p_Bi)
-    CSD = 1 - ( num / denom )
-    stats[join]['Cosine Distance'] = CSD
+    # CSD = 1 - ( num / denom )
+    CSD = ( num / denom )
+    stats[join]['Cosine Similarity'] = CSD
 
     for i_row, row in df.iterrows():
         a_i = pd.Series([row['quasi_A']]).fillna(value = 0.0)
         b_i = pd.Series([row['quasi_B']]).fillna(value = 0.0)
         D2, _ = calc_D2(a_i, b_i, S_A, S_B)
         G2, _ = calc_G2(a_i, b_i, S_A, S_B)
-        df.at[i_row, f"D2_{join}"] = D2
-        df.at[i_row, f"G2_{join}"] = G2
+        df.at[i_row, f"D^2_{join}"] = D2
+        df.at[i_row, f"G^2_{join}"] = G2
 
 
 jaccard = jaccardTemp['Intersection'] / jaccardTemp['Union']
@@ -292,9 +308,9 @@ dfOut = df.rename(columns = {'mz_A' : 'm/z_a',
 })
 
 if args.parentFormula == None:
-    dfOut = dfOut[['m/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D2_Union", "G2_Union", "D2_Intersection"]]
+    dfOut = dfOut[['m/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D^2_Union", "G^2_Union", "D^2_Intersection"]]
 else:
-    dfOut = dfOut[['formula_A', 'formula_B', 'm/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D2_Union", "G2_Union", "D2_Intersection"]]
+    dfOut = dfOut[['formula_A', 'formula_B', 'm/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D^2_Union", "G^2_Union", "D^2_Intersection"]]
 
 
 dfStats = pd.DataFrame(stats)
