@@ -38,10 +38,13 @@ parser.add_argument("--relCutoff", default = 0, type = float)
 parser.add_argument("--resClearance", default = 0.02, type = float)
 parser.add_argument("--matchAcc", default = 0.01, type = float)
 parser.add_argument("--pltTitle", default = "")
+# Parent Formula related args
 parser.add_argument("--subFormulaTol", default = 0.01, type = float)
+parser.add_argument("--DUMin", default = -0.5) # can be "NONE" as well
 
 # Optional with no defaults
 parser.add_argument("--parentFormula", default = None)
+
 
 args = parser.parse_args()
 
@@ -225,11 +228,7 @@ for join in stats.keys():
     
     df[f"D^2_{join}"] = None
     df[f"G^2_{join}"] = None
-    S_A = dfC['intensity_A'].sum()
-    S_B = dfC['intensity_B'].sum()
-
-    stats[join]['S_A'] = S_A
-    stats[join]['S_B'] = S_B
+    
 
     a_i = dfC['quasi_A']
     b_i = dfC['quasi_B']
@@ -238,6 +237,15 @@ for join in stats.keys():
     stats[join]['quasi_A'] = dfC['quasi_A'].sum()
     stats[join]['quasi_B'] = dfC['quasi_B'].sum()
     stats[join]['M'] = M
+
+    # S_A = dfC['intensity_A'].sum()
+    # S_B = dfC['intensity_B'].sum()
+    S_A = dfC['quasi_A'].sum()
+    S_B = dfC['quasi_B'].sum()
+
+    stats[join]['S_A'] = S_A
+    stats[join]['S_B'] = S_B
+
     
 
     # Calculate D^2
@@ -251,8 +259,11 @@ for join in stats.keys():
     stats[join]['pval_G^2'] = pval_G2
 
 
-    p_Ai = a_i / S_A
-    p_Bi = b_i / S_B
+    # p_Ai = a_i / S_A
+    # p_Bi = b_i / S_B
+    p_Ai = a_i / dfC['quasi_A'].sum()
+    p_Bi = b_i / dfC['quasi_B'].sum()
+    
 
     def H(x):
         h = -1 * np.sum( x * ( np.log(x) ) )
@@ -308,9 +319,9 @@ dfOut = df.rename(columns = {'mz_A' : 'm/z_a',
 })
 
 if args.parentFormula == None:
-    dfOut = dfOut[['m/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D^2_Union", "G^2_Union", "D^2_Intersection"]]
+    dfOut = dfOut[['m/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D^2_Union", "G^2_Union", "D^2_Intersection", "G^2_Intersection"]]
 else:
-    dfOut = dfOut[['formula_A', 'formula_B', 'm/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D^2_Union", "G^2_Union", "D^2_Intersection"]]
+    dfOut = dfOut[['formula_A', 'formula_B', 'm/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D^2_Union", "G^2_Union", "D^2_Intersection", "G^2_Intersection"]]
 
 
 dfStats = pd.DataFrame(stats)
