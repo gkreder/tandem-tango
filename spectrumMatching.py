@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from adjustText import adjust_text
 import argparse
+from joblib import Parallel, delayed
 # ---------------------------------------
 import plotUtils
 import formulaUtils
@@ -164,41 +165,41 @@ for i_d, d in enumerate(data):
     d['intensities'] = np.array(newInts)
     d['mzs'] = np.array(newMzs)
 
-    # Filtering for formulas if parent formula is specified. Keep only peaks that are assigned a subformula within the 
-    # specified user tolerance. Discard all other peaks
-    if args.parentFormula != None:
-        print('Formula mapping...')
-        newMzs = []
-        newInts = []
-        formulas = []
-        formulaMasses = []
-        for i, mz in enumerate(tqdm(d['mzs'])):
-            intensity = d['intensities'][i]
-            form = molmass.Formula(args.parentFormula).formula
-            bestForm, thMass, error = formulaUtils.findBestForm(mz, form, toleranceDa = args.subFormulaTol)
-            if bestForm == None:
-                continue
-            newMzs.append(mz)
-            newInts.append(intensity)
-            formulas.append(bestForm)
-            formulaMasses.append(thMass)
-        d['intensities'] = np.array(newInts)
-        d['mzs'] = np.array(newMzs)
-        d['formulas'] = np.array(formulas)
-        d['formulaMasses'] = np.array(formulaMasses)
+    # # Filtering for formulas if parent formula is specified. Keep only peaks that are assigned a subformula within the 
+    # # specified user tolerance. Discard all other peaks
+    # if args.parentFormula != None:
+    #     print('Formula mapping...')
+    #     newMzs = []
+    #     newInts = []
+    #     formulas = []
+    #     formulaMasses = []
+    #     for i, mz in enumerate(tqdm(d['mzs'])):
+    #         intensity = d['intensities'][i]
+    #         form = molmass.Formula(args.parentFormula).formula
+    #         bestForm, thMass, error = formulaUtils.findBestForm(mz, form, toleranceDa = args.subFormulaTol)
+    #         if bestForm == None:
+    #             continue
+    #         newMzs.append(mz)
+    #         newInts.append(intensity)
+    #         formulas.append(bestForm)
+    #         formulaMasses.append(thMass)
+    #     d['intensities'] = np.array(newInts)
+    #     d['mzs'] = np.array(newMzs)
+    #     d['formulas'] = np.array(formulas)
+    #     d['formulaMasses'] = np.array(formulaMasses)
         
         
 
 dfs = []
 for d in data:
     df = pd.DataFrame({"mz" : d['mzs'], "intensity" : d['intensities']})
-    if args.parentFormula != None:
-        df['formula'] = d['formulas']
-        df['m/z_calculated'] = d['formulaMasses']
+    # if args.parentFormula != None:
+    #     df['formula'] = d['formulas']
+    #     df['m/z_calculated'] = d['formulaMasses']
     df = df.sort_values(by = 'mz').reset_index(drop = True)
     df['mz_join'] = df['mz']
-    if args.parentFormula != None:
-        df = df = df.dropna(subset = [f'formula'])
+    # if args.parentFormula != None:
+        # df = df = df.dropna(subset = [f'formula'])
     dfs.append(df)
 
 
@@ -215,6 +216,31 @@ for i, suf in enumerate(['A', 'B']):
 for suf in ['A', 'B']:
     df[f"quasi_{suf}"] = df[f'intensity_{suf}'] / ( args.quasiX *  ( np.power(df[f'mz_{suf}'], args.quasiY) ) )
 
+
+
+# Mapping parent formulas using the new multi-formula version
+if args.parentFormula != None:
+    print('Formula mapping...')
+    formulas = [None for x in range(len(df))]
+    formulaMasses = [None for x in range(len(df))]
+    form = molmass.Formula(args.parentFormula).formula
+    for i, (mz_a, mz_b) in enumerate(tqdm(df[['mz_A', 'mz_B']].values)):
+        if np.isnan(mz_a):
+            bestForm, thMass, error = formulaUtils.findBestForm(mz_b, form, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
+        elif np.isnan(mz_b):
+            bestForm, thMass, error = formulaUtils.findBestForm(mz_a, form, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
+        else:
+            bestForm, thMass, error = formulaUtils.findBestForm(np.mean((mz_a, mz_b)), form, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
+        if bestForm == None:
+            continue
+    formulas[i] = bestForm
+    formulaMasses[i] = thMass
+
+
+df['formula'] = np.array(formulas)
+df['m/z_calculated'] = np.array(formulaMasses)
+if args.parentFormula != None:
+        df = df.dropna(subset = [f'formula'])
 
 
 

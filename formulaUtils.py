@@ -4,6 +4,7 @@ import numpy as np
 import molmass
 import matplotlib.pyplot as plt
 import cvxpy as cp
+import more_itertools
 # from pyscipopt.scip import Model 
 
 def chargedMass(mass, charge):
@@ -128,7 +129,7 @@ def vecToForm(vec, refFormula = "CHNOPSNa"):
     res = molmass.Formula("".join([f"{e}{int(vec[i_e])}" if vec[i_e] >= 0.99 else "" for i_e, e in enumerate(refElements)])).formula
     return(res)
 
-def findBestForm(mass, parentForm, toleranceDa = 0.005, charge = 0, verbose = False, cvxy_verbose = False, solver = 'SCIP'):
+def findBestForm(mass, parentForm, toleranceDa = 0.005, charge = 0, verbose = False, cvxy_verbose = False, solver = 'SCIP', DuMin = None):
     (refElements, tMasses) = getRefs(parentForm)
     if verbose:
         print(refElements)
@@ -161,7 +162,86 @@ def findBestForm(mass, parentForm, toleranceDa = 0.005, charge = 0, verbose = Fa
         print(f"Error {error}")
     if error > toleranceDa:
         return(None, None, None)
+    elif DuMin != None:
+        valTable = {}
+        for e in ["H", "F", "Cl", "Br", "I", "Li", "Na", "K", "Rb", "Cs"]:
+            valTable[e] = 1
+        for e in ["O", "S", "Se", "Be", "Mg", "Ca", "Sr", "Ba"]:
+            valTable[e] = 2
+        for e in ["N", "P", "B", "As", "Sb"]:
+            valTable[e] = 3
+        for e in ["C", "Si", "Ge", "Sn"]:
+            valTable[e] = 4
+
+        DuForm = 0
+        for E, nE, _, _ in molmass.Formula(bestForm).composition():
+            if E in valTable.keys():
+                vE = valTable[E]
+            else:
+                vE = 2
+            DuForm += nE * (vE - 2)
+        DuForm = 1 + ( 0.5 * DuForm )
+        if DuForm < DuMin:
+            return(None, None, None)
+        else:
+            return(bestForm, thMass, error)    
     else:
         return(bestForm, thMass, error)
+
+ 
+def generateAllForms(parentForm):
+    l1 = [[atom for x in range(atomNum)] for atom, atomNum, _, _ in molmass.Formula(parentForm).composition()]
+    l2 = list(np.concatenate(l1). flat)
+    mForms = (molmass.Formula("".join(x)) for l in range(1, len(l2)) for x in more_itertools.distinct_combinations(l2, l))
+    outList = [(m.formula, m.isotope.mass) for m in mForms]
+    return(outList)
+
+def findBestForms(mass, parentForm, toleranceDa = 0.005, charge = 0, verbose = False, DuMin = None):
+    if charge != 0:
+        mass = unchargedMass(mass, charge)
+    l1 = [[atom for x in range(atomNum)] for atom, atomNum, _, _ in molmass.Formula(parentForm).composition()]
+    l2 = list(np.concatenate(l1). flat)
+    foundHits = (molmass.Formula("".join(x)) for l in range(1, len(l2)) for x in more_itertools.distinct_combinations(l2, l) if abs(molmass.Formula("".join(x)).isotope.mass - mass) <= toleranceDa)
+    output = []
+    for x in foundHits:
+        bestForm = x.formula
+        thMass = x.isotope.mass
+        error = abs(thMass - mass)
+        output.append((bestForm, thMass, error))
+    if len(output) == 0:
+        output = [(None, None, None)]
+    else:
+        output = sorted(output, key = lambda tup : tup[-1])
+
+    if DuMin != None:
+        outputFiltered = []
+        valTable = {}
+        for e in ["H", "F", "Cl", "Br", "I", "Li", "Na", "K", "Rb", "Cs"]:
+            valTable[e] = 1
+        for e in ["O", "S", "Se", "Be", "Mg", "Ca", "Sr", "Ba"]:
+            valTable[e] = 2
+        for e in ["N", "P", "B", "As", "Sb"]:
+            valTable[e] = 3
+        for e in ["C", "Si", "Ge", "Sn"]:
+            valTable[e] = 4
+
+        for form, thMass, error in output:
+            DuForm = 0
+            for E, nE, _, _ in molmass.Formula(form).composition():
+                if E in valTable.keys():
+                    vE = valTable[E]
+                else:
+                    vE = 2
+                DuForm += nE * (vE - 2)
+            DuForm = 1 + ( 0.5 * DuForm )
+            if DuForm >= DuMin:
+                outputFiltered.append((form, thMass, error))
+        if len(outputFiltered) == 0:
+            outputFiltered = [(None, None, None)]
+        output = outputFiltered
+
+
+    return(output)
+
 
  
