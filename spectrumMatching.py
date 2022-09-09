@@ -249,10 +249,10 @@ if args.parentFormula != None:
         formulaMasses[i] = ", ".join([str(x) for x in thMasses])
 
 
-df['formula'] = np.array(formulas)
-df['m/z_calculated'] = np.array(formulaMasses)
-if args.parentFormula != None:
-        df = df.dropna(subset = [f'formula'])
+    df['formula'] = np.array(formulas)
+    df['m/z_calculated'] = np.array(formulaMasses)
+    df = df.dropna(subset = [f'formula'])
+        
 
 
 
