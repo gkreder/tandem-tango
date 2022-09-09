@@ -50,7 +50,7 @@ args = parser.parse_args()
 
 # ----------------------------------------
 
-def calc_G2(a_i, b_i, S_A, S_B):
+def calc_G2(a_i, b_i, S_A, S_B, M):
     t1 = ( a_i + b_i ) * np.log( ( a_i + b_i ) / ( S_A + S_B ) ).apply(lambda x : 0 if np.isinf(x) else x)
     t2 = a_i * np.log(a_i / S_A).apply(lambda x : 0 if np.isinf(x) else x)
     t3 = b_i * np.log(b_i / S_B).apply(lambda x : 0 if np.isinf(x) else x)
@@ -58,8 +58,8 @@ def calc_G2(a_i, b_i, S_A, S_B):
     pval_G2 = scipy.stats.chi2.sf(G2, df = M - 1)
     return(G2, pval_G2)
 
-def calc_D2(a_i, b_i, S_A, S_B):
-    num = np.power( ( S_B * a_i)  - ( S_A * b_i) , 2) 
+def calc_D2(a_i, b_i, S_A, S_B, M):
+    num = np.power( ( S_B * a_i )  - ( S_A * b_i ) , 2) 
     denom = a_i + b_i
     D2 = np.sum(num  / denom) / (S_A * S_B)
     
@@ -75,6 +75,9 @@ if args.matchAcc > ( args.resClearance * 0.5):
 
 if args.quasiY > 0:
     sys.exit('Error - quasiY must be a non-positive number')
+
+if str(args.DUMin).capitalize() == "None":
+    args.DUMin = None
 
 
 if args.indexFormat == 'Agilent':
@@ -216,20 +219,21 @@ for suf in ['A', 'B']:
     df[f"quasi_{suf}"] = df[f'intensity_{suf}'] / ( args.quasiX *  ( np.power(df[f'mz_{suf}'], args.quasiY) ) )
 
 
+df = df.reset_index(drop = True)
 
 
 stats = {"Union" : {}, "Intersection" : {}}
+dfCs = {}
 jaccardTemp = {}
 for join in stats.keys():
     if join == 'Union':
-        dfC = df.fillna(value = 0.0)
+        dfC = df.copy()
     elif join == 'Intersection':
-        dfC = df.dropna(subset = ['mz_A', 'mz_B'])
+        dfC = df.dropna(subset = ['mz_A', 'mz_B']).copy()
     
-    df[f"D^2_{join}"] = None
-    df[f"G^2_{join}"] = None
+    stats[join]['S_A'] = dfC['intensity_A'].sum()
+    stats[join]['S_B'] = dfC['intensity_B'].sum()
     
-
     a_i = dfC['quasi_A']
     b_i = dfC['quasi_B']
     M = dfC.shape[0]
@@ -243,18 +247,16 @@ for join in stats.keys():
     S_A = dfC['quasi_A'].sum()
     S_B = dfC['quasi_B'].sum()
 
-    stats[join]['S_A'] = S_A
-    stats[join]['S_B'] = S_B
 
     
 
     # Calculate D^2
-    D2, pval_D2 = calc_D2(a_i, b_i, S_A, S_B)
+    D2, pval_D2 = calc_D2(a_i.fillna(value = 0.0), b_i.fillna(value = 0.0), S_A, S_B, M)
     stats[join]['D^2'] = D2
     stats[join]['pval_D^2'] = pval_D2
 
     # Calculate G^2
-    G2, pval_G2 = calc_G2(a_i, b_i, S_A, S_B)
+    G2, pval_G2 = calc_G2(a_i.fillna(value = 0.0), b_i.fillna(value = 0.0), S_A, S_B, M)
     stats[join]['G^2'] = G2
     stats[join]['pval_G^2'] = pval_G2
 
@@ -283,7 +285,7 @@ for join in stats.keys():
 
     # Jensen-Shannon divergence
     sTerm = (p_Ai + p_Bi).fillna(value = 0)
-    JSD = H( ( 0.5 * ( p_Ai + p_Bi ) ) ) - ( 0.5 * H_pA ) - ( 0.5 *  H_pB  ) 
+    JSD = H( ( 0.5 * ( p_Ai.fillna(0.0) + p_Bi.fillna(0.0) ) ) ) - ( 0.5 * H_pA ) - ( 0.5 *  H_pB  ) 
     stats[join]['JSD'] = JSD
 
     # Cosine Distance
@@ -295,19 +297,26 @@ for join in stats.keys():
     CSD = ( num / denom )
     stats[join]['Cosine Similarity'] = CSD
 
-    for i_row, row in df.iterrows():
-        a_i = pd.Series([row['quasi_A']]).fillna(value = 0.0)
-        b_i = pd.Series([row['quasi_B']]).fillna(value = 0.0)
-        D2, _ = calc_D2(a_i, b_i, S_A, S_B)
-        G2, _ = calc_G2(a_i, b_i, S_A, S_B)
-        df.at[i_row, f"D^2_{join}"] = D2
-        df.at[i_row, f"G^2_{join}"] = G2
+    dfC[f"D^2_{join}"] = None
+    dfC[f"G^2_{join}"] = None
 
+    for i_row, row in dfC.iterrows():
+        a_i = row['quasi_A']
+        b_i = row['quasi_B']
+        if ((np.isnan(a_i)) or (np.isnan(b_i))) and (join == 'Intersection'): 
+            continue
+        a_i = pd.Series([a_i])
+        b_i = pd.Series([b_i])
+        D2, _ = calc_D2(a_i.fillna(value = 0.0), b_i.fillna(value = 0.0), S_A, S_B, M)
+        G2, _ = calc_G2(a_i.fillna(value = 0.0), b_i.fillna(value = 0.0), S_A, S_B, M)
+        dfC.at[i_row, f"D^2_{join}"] = D2
+        dfC.at[i_row, f"G^2_{join}"] = G2
+    dfCs[join] = dfC
 
 jaccard = jaccardTemp['Intersection'] / jaccardTemp['Union']
 stats['Union']['Jaccard'] = jaccard 
 
-
+df = pd.merge(dfCs['Union'], dfCs['Intersection'], how = 'outer')
 
 
 dfOut = df.rename(columns = {'mz_A' : 'm/z_a',
@@ -325,6 +334,7 @@ else:
 
 
 dfStats = pd.DataFrame(stats)
+
 
 writer = pd.ExcelWriter(args.outFile, engine = 'xlsxwriter')
 dfStats.to_excel(writer, sheet_name = "Stats")
