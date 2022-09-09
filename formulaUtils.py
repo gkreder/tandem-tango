@@ -196,18 +196,20 @@ def generateAllForms(parentForm):
     outList = [(m.formula, m.isotope.mass) for m in mForms]
     return(outList)
 
-def findBestForms(mass, parentForm, toleranceDa = 0.005, charge = 0, verbose = False, DuMin = None):
+
+def findBestForms(mass, allForms, toleranceDa = 0.005, charge = 0, verbose = False, DuMin = None):
     if charge != 0:
         mass = unchargedMass(mass, charge)
-    l1 = [[atom for x in range(atomNum)] for atom, atomNum, _, _ in molmass.Formula(parentForm).composition()]
-    l2 = list(np.concatenate(l1). flat)
-    foundHits = (molmass.Formula("".join(x)) for l in range(1, len(l2)) for x in more_itertools.distinct_combinations(l2, l) if abs(molmass.Formula("".join(x)).isotope.mass - mass) <= toleranceDa)
-    output = []
-    for x in foundHits:
-        bestForm = x.formula
-        thMass = x.isotope.mass
-        error = abs(thMass - mass)
-        output.append((bestForm, thMass, error))
+    # allForms = generateAllForms(parentForm)
+    foundHits = [(x[0], x[1], abs(x[1] - mass)) for x in allForms if abs(x[1] - mass) <= toleranceDa]
+    output = foundHits
+    # foundHits = (molmass.Formula("".join(x)) for l in range(1, len(l2)) for x in more_itertools.distinct_combinations(l2, l) if abs(molmass.Formula("".join(x)).isotope.mass - mass) <= toleranceDa)
+    # output = []
+    # for bestForm in foundHits:
+        # bestForm = x.formula
+        # thMass = x.isotope.mass
+        # error = abs(thMass - mass)
+        # output.append((bestForm, thMass, error))
     if len(output) == 0:
         output = [(None, None, None)]
     else:
@@ -224,8 +226,9 @@ def findBestForms(mass, parentForm, toleranceDa = 0.005, charge = 0, verbose = F
             valTable[e] = 3
         for e in ["C", "Si", "Ge", "Sn"]:
             valTable[e] = 4
-
         for form, thMass, error in output:
+            if form == None:
+                continue
             DuForm = 0
             for E, nE, _, _ in molmass.Formula(form).composition():
                 if E in valTable.keys():
@@ -239,9 +242,9 @@ def findBestForms(mass, parentForm, toleranceDa = 0.005, charge = 0, verbose = F
         if len(outputFiltered) == 0:
             outputFiltered = [(None, None, None)]
         output = outputFiltered
-
-
+        output = ([x[0] for x in output], [x[1] for x in output], [x[2] for x in output])
     return(output)
 
 
  
+

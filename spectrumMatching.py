@@ -225,20 +225,28 @@ df = df.reset_index(drop = True)
 # Mapping parent formulas using the new multi-formula version
 if args.parentFormula != None:
     print('Formula mapping...')
+    form = molmass.Formula(args.parentFormula).formula
+
+    allForms = formulaUtils.generateAllForms(form)
+
     formulas = [None for x in range(len(df))]
     formulaMasses = [None for x in range(len(df))]
-    form = molmass.Formula(args.parentFormula).formula
+    
     for i, (mz_a, mz_b) in enumerate(tqdm(df[['mz_A', 'mz_B']].values)):
         if np.isnan(mz_a):
-            bestForm, thMass, error = formulaUtils.findBestForm(mz_b, form, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
+            # bestForm, thMass, error = formulaUtils.findBestForm(mz_b, form, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
+            bestForms, thMasses, errors = formulaUtils.findBestForms(mz_b, allForms, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
         elif np.isnan(mz_b):
-            bestForm, thMass, error = formulaUtils.findBestForm(mz_a, form, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
+            # bestForm, thMass, error = formulaUtils.findBestForm(mz_a, form, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
+            bestForms, thMasses, errors = formulaUtils.findBestForms(mz_a, allForms, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
         else:
-            bestForm, thMass, error = formulaUtils.findBestForm(np.mean((mz_a, mz_b)), form, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
+            # bestForm, thMass, error = formulaUtils.findBestForm(np.mean((mz_a, mz_b)), form, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
+            bestForms, thMasses, errors = formulaUtils.findBestForms(np.mean((mz_a, mz_b)), allForms, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
+        bestForm = bestForms[0]
         if bestForm == None:
             continue
-    formulas[i] = bestForm
-    formulaMasses[i] = thMass
+        formulas[i] = ", ".join([str(x).replace("None", "") for x in bestForms])
+        formulaMasses[i] = ", ".join([str(x) for x in thMasses])
 
 
 df['formula'] = np.array(formulas)
@@ -356,7 +364,8 @@ dfOut = df.rename(columns = {'mz_A' : 'm/z_a',
 if args.parentFormula == None:
     dfOut = dfOut[['m/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D^2_Union", "G^2_Union", "D^2_Intersection", "G^2_Intersection"]]
 else:
-    dfOut = dfOut[['formula_A', 'formula_B', 'm/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D^2_Union", "G^2_Union", "D^2_Intersection", "G^2_Intersection"]]
+    # dfOut = dfOut[['formula_A', 'formula_B', 'm/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D^2_Union", "G^2_Union", "D^2_Intersection", "G^2_Intersection"]]
+    dfOut = dfOut[['formula', 'm/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D^2_Union", "G^2_Union", "D^2_Intersection", "G^2_Intersection"]]
 
 
 dfStats = pd.DataFrame(stats)
