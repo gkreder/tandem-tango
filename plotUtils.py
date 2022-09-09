@@ -9,7 +9,7 @@ from matplotlib.ticker import ScalarFormatter, FuncFormatter
 import matplotlib.ticker 
 # -------------------------------------------------------
 
-def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, formulas_b = None, normalize = True, rotation = 90):
+def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, formulas_b = None, normalize = True, rotation = 90, sideText = None):
     plt.rcParams['font.size'] = 16
     fig, ax = plt.subplots(figsize = (12,9))
     # plt.stem(df['mz_A'], df['intensity_A'], linefmt = 'b-', markerfmt = ' ', basefmt = ' ')
@@ -27,7 +27,8 @@ def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, f
     if normalize:
         @FuncFormatter
         def my_formatter(x, pos):
-            return( "{:.2e}".format(abs(x)))
+            # return( "{:.2e}".format(abs(x))) # for scientific notation
+            return( f"{abs(x)}")
         ax.get_yaxis().set_major_formatter(my_formatter)
     
     ylim = ax.get_ylim()
@@ -58,10 +59,19 @@ def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, f
 
     adjust_text(texts, arrowprops=dict(arrowstyle='-', color='black'), ha = 'center') # , add_objects = [vlinesA, vlinesB]
 
+    ylim = ax.get_ylim()
+    xlim = ax.get_xlim()
+    if sideText != None:
+        plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), 0, sideText)
+
+
 
 
     plt.xlabel('m/z')
-    plt.ylabel('Intensity')
+    if normalize:
+        plt.ylabel('Relative Intensity')
+    else:
+        plt.ylabel('Intensity')
     return(fig, ax)
 
 

@@ -376,11 +376,28 @@ dfStats.to_excel(writer, sheet_name = "Stats")
 dfOut.to_excel(writer, sheet_name = "Spectra", index = False)
 writer.save()
 
+sideText = ""
+if args.parentFormula != None:
+    sideText += f"Parent Formula : {args.parentFormula}"
+sideText += f"\nM Intersection : {dfStats['Intersection'].loc['M']}"
+sideText += f"\npval Intersection (D^2) : {dfStats['Intersection'].loc['pval_D^2']:.2e}"
+sideText += f"\npval Intersection (G^2) : {dfStats['Intersection'].loc['pval_G^2']:.2e}"
+sideText += f"\nS_A Intersection (quasi) : {dfStats['Intersection'].loc['quasi_A']:.2e}"
+sideText += f"\nS_B Intersection (quasi) : {dfStats['Intersection'].loc['quasi_B']:.2e}"
+sideText += f"\nH(P_A) Intersection : {dfStats['Intersection'].loc['Entropy_A']:.2e}"
+sideText += f"\nH(P_B) Intersection : {dfStats['Intersection'].loc['Entropy_B']:.2e}"
+sideText += f"\nPP(P_A) Intersection : {dfStats['Intersection'].loc['Perplexity_A']:.2e}"
+sideText += f"\nPP(P_B) Intersection : {dfStats['Intersection'].loc['Perplexity_B']:.2e}"
+sideText += f"\ncos (P_A, P_B) Intersection : {dfStats['Intersection'].loc['Cosine Similarity']:.2e}"
+sideText += f"\nJSD (P_A, P_B) Intersection : {dfStats['Intersection'].loc['JSD']:.2e}"
+
+
+
 # if args.parentFormula != None:
 #     fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], df['formula_A'], df['formula_B'], normalize = True)
 # else:
 #     fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], None, None, normalize = True)
-fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], None, None, normalize = True)
+fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], None, None, normalize = True, sideText = sideText)
 
 plt.title = args.pltTitle
 plt.savefig(args.outPlot, bbox_inches = 'tight') 
