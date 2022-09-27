@@ -31,16 +31,19 @@ parser.add_argument("--quasiX", required = True, type = float)
 parser.add_argument("--quasiY", required = True, type = float)
 # Agilent (MH) starts at 1, MsConvert starts at 0. So Agilent index of 100 = mzML index of 99
 parser.add_argument("--indexFormat", choices = ['Agilent', 'MsConvert'], required = True)
+parser.add_argument("--R", required = True, type = float) # Instrument Resolution FWHM = 200 m/z
+
 
 # Optional with defaults
 parser.add_argument("--gainControl", default = False )
-parser.add_argument("--absCutoff", default = 50, type = float)
+parser.add_argument("--quasiCutoff", default = 2, type = float)
+parser.add_argument("--absCutoff", default = 0, type = float)
 parser.add_argument("--relCutoff", default = 0, type = float)
-parser.add_argument("--resClearance", default = 0.02, type = float)
-parser.add_argument("--matchAcc", default = 0.01, type = float)
+parser.add_argument("--resClearance", default = None) # Defaults to 200 / R
+parser.add_argument("--matchAcc", default = None) # Defaults to 100 / R
 parser.add_argument("--pltTitle", default = "")
 # Parent Formula related args
-parser.add_argument("--subFormulaTol", default = 0.01, type = float)
+parser.add_argument("--subFormulaTol", default = None) # Defaults to 100 / R
 parser.add_argument("--DUMin", default = -0.5) # can be "NONE" as well
 
 # Optional with no defaults
@@ -49,9 +52,25 @@ parser.add_argument("--parentFormula", default = None)
 
 args = parser.parse_args()
 
+if args.resClearance == None:
+    args.resClearance = 200 / args.R
+else:
+    args.resClearance = float(args.resClearance)
+
+if args.matchAcc == None:
+    args.matchAcc = 100 / args.R
+else:
+    args.matchAcc = float(args.matchAcc)
+
+if args.subFormulaTol == None:
+    args.subFormulaTol = 100 / args.R
+else:
+    args.subFormulaTol = float(args.subFormulaTol)
+
+
 # ----------------------------------------
 
-def calc_G2(a_i, b_i, S_A, S_B, M):
+def calc_G2(a_i, b_i, S_A, S_B):
     t1 = ( a_i + b_i ) * np.log( ( a_i + b_i ) / ( S_A + S_B ) ).apply(lambda x : 0 if np.isinf(x) else x)
     t2 = a_i * np.log(a_i / S_A).apply(lambda x : 0 if np.isinf(x) else x)
     t3 = b_i * np.log(b_i / S_B).apply(lambda x : 0 if np.isinf(x) else x)
@@ -59,8 +78,8 @@ def calc_G2(a_i, b_i, S_A, S_B, M):
     pval_G2 = scipy.stats.chi2.sf(G2, df = M - 1)
     return(G2, pval_G2)
 
-def calc_D2(a_i, b_i, S_A, S_B, M):
-    num = np.power( ( S_B * a_i )  - ( S_A * b_i ) , 2) 
+def calc_D2(a_i, b_i, S_A, S_B):
+    num = np.power( ( S_B * a_i)  - ( S_A * b_i) , 2) 
     denom = a_i + b_i
     D2 = np.sum(num  / denom) / (S_A * S_B)
     
@@ -76,9 +95,6 @@ if args.matchAcc > ( args.resClearance * 0.5):
 
 if args.quasiY > 0:
     sys.exit('Error - quasiY must be a non-positive number')
-
-if str(args.DUMin).capitalize() == "None":
-    args.DUMin = None
 
 
 if args.indexFormat == 'Agilent':
@@ -134,68 +150,63 @@ for i_d, d in enumerate(data):
     d['intensities'] = d['intensities'][indices]
     d['mzs'] = d['mzs'][indices]
 
+    # Conversion to quasicounts by dividing the intensity by gamma_i(1 + delta)
+    d['quasi'] = d['intensities'] / ( args.quasiX *  ( np.power(d['mzs'], args.quasiY) ) )
+
+    # Eliminating peaks with quasicount < quasicount intensity cutoff
+    indices = np.where(d['quasi'] >= args.quasiCutoff)
+    d['intensities'] = d['intensities'][indices]
+    d['mzs'] = d['mzs'][indices]
+    d['quasi'] = d['quasi'][indices]
+
     # Eliminating peaks with m/z < parent peak m/z
     indices = np.where(d['mzs'] <= args.parentMZ)
     d['mzs'] = d['mzs'][indices]
     d['intensities'] = d['intensities'][indices]
+    d['quasi'] = d['quasi'][indices]
 
-    # Eliminate all paeks with normalized intensity < relative intensity cutoff
+    # Eliminate all peaks with normalized intensity < relative intensity cutoff
     indices = np.where((d['intensities'] / max(d['intensities'])) >= args.relCutoff)
     d['intensities'] = d['intensities'][indices]
     d['mzs'] = d['mzs'][indices]
+    d['quasi'] = d['quasi'][indices]
 
     # Sort remaining peaks in spectrum from most to least intense
     sOrder = np.argsort(d['intensities'])[::-1]
     d['intensities'] = d['intensities'][sOrder]
     d['mzs'] = d['mzs'][sOrder]
+    d['quasi'] = d['quasi'][sOrder]
 
     print("Resolution clearance....")
     # For each peak (from most intense to least), eliminate any peaks within the closed interval [m/z +- resolution clearance]
     newInts = []
     newMzs = []
+    newQuasis = []
     ints = np.array(d['intensities'].copy())
     mzs = np.array(d['mzs'].copy())
+    quasis = np.array(d['quasi'].copy())
     i = 0
     while len(ints) > 0:
         i += 1
         mz = mzs[0]
         intensity = ints[0]
+        quasi = quasis[0]
         keepIndices = np.where(np.abs(mzs - mz) > args.resClearance)
         newInts = newInts + [intensity] # + list(ints[keepIndices])
         newMzs = newMzs + [mz]  #+ list(mzs[keepIndices])
+        newQuasis = newQuasis + [quasi]
         ints = ints[keepIndices]
         mzs = mzs[keepIndices]
+        quasis = quasis[keepIndices]
     d['intensities'] = np.array(newInts)
     d['mzs'] = np.array(newMzs)
-
-    # # Filtering for formulas if parent formula is specified. Keep only peaks that are assigned a subformula within the 
-    # # specified user tolerance. Discard all other peaks
-    # if args.parentFormula != None:
-    #     print('Formula mapping...')
-    #     newMzs = []
-    #     newInts = []
-    #     formulas = []
-    #     formulaMasses = []
-    #     for i, mz in enumerate(tqdm(d['mzs'])):
-    #         intensity = d['intensities'][i]
-    #         form = molmass.Formula(args.parentFormula).formula
-    #         bestForm, thMass, error = formulaUtils.findBestForm(mz, form, toleranceDa = args.subFormulaTol)
-    #         if bestForm == None:
-    #             continue
-    #         newMzs.append(mz)
-    #         newInts.append(intensity)
-    #         formulas.append(bestForm)
-    #         formulaMasses.append(thMass)
-    #     d['intensities'] = np.array(newInts)
-    #     d['mzs'] = np.array(newMzs)
-    #     d['formulas'] = np.array(formulas)
-    #     d['formulaMasses'] = np.array(formulaMasses)
+    d['quasi'] = np.array(newQuasis)
         
         
 
 dfs = []
 for d in data:
-    df = pd.DataFrame({"mz" : d['mzs'], "intensity" : d['intensities']})
+    df = pd.DataFrame({"mz" : d['mzs'], "intensity" : d['intensities'], 'quasi' : d['quasi']}) 
     # if args.parentFormula != None:
     #     df['formula'] = d['formulas']
     #     df['m/z_calculated'] = d['formulaMasses']
@@ -215,59 +226,54 @@ for i, suf in enumerate(['A', 'B']):
     df = pd.concat([df, dfRem])
 
 
-# Convert all peaks to "quasicounts" by dividing the intensity by gamma_i(1 + delta)
-for suf in ['A', 'B']:
-    df[f"quasi_{suf}"] = df[f'intensity_{suf}'] / ( args.quasiX *  ( np.power(df[f'mz_{suf}'], args.quasiY) ) )
+# # Convert all peaks to "quasicounts" by dividing the intensity by gamma_i(1 + delta)
+# for suf in ['A', 'B']:
+#     df[f"quasi_{suf}"] = df[f'intensity_{suf}'] / ( args.quasiX *  ( np.power(df[f'mz_{suf}'], args.quasiY) ) )
 
 
-df = df.reset_index(drop = True)
 
 # Mapping parent formulas using the new multi-formula version
 if args.parentFormula != None:
     print('Formula mapping...')
-    form = molmass.Formula(args.parentFormula).formula
-
-    allForms = formulaUtils.generateAllForms(form)
-
     formulas = [None for x in range(len(df))]
     formulaMasses = [None for x in range(len(df))]
-    
+    form = molmass.Formula(args.parentFormula).formula
+    allForms = formulaUtils.generateAllForms(form)
     for i, (mz_a, mz_b) in enumerate(tqdm(df[['mz_A', 'mz_B']].values)):
         if np.isnan(mz_a):
-            # bestForm, thMass, error = formulaUtils.findBestForm(mz_b, form, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
-            bestForms, thMasses, errors = formulaUtils.findBestForms(mz_b, allForms, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
+            output = formulaUtils.findBestForms(mz_b, allForms, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
         elif np.isnan(mz_b):
-            # bestForm, thMass, error = formulaUtils.findBestForm(mz_a, form, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
-            bestForms, thMasses, errors = formulaUtils.findBestForms(mz_a, allForms, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
+            output = formulaUtils.findBestForms(mz_a, allForms, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
         else:
-            # bestForm, thMass, error = formulaUtils.findBestForm(np.mean((mz_a, mz_b)), form, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
-            bestForms, thMasses, errors = formulaUtils.findBestForms(np.mean((mz_a, mz_b)), allForms, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
-        bestForm = bestForms[0]
-        if bestForm == None:
+            output = formulaUtils.findBestForms(np.mean((mz_a, mz_b)), allForms, toleranceDa = args.subFormulaTol, DuMin=args.DUMin)
+        bestForms, thMasses, errors = zip(*output)
+        if bestForms[0] == None:
             continue
-        formulas[i] = ", ".join([str(x).replace("None", "") for x in bestForms])
+        # formulas[i] = bestForms
+        # formulaMasses[i] = thMasses
+        formulas[i] = ", ".join(bestForms)
         formulaMasses[i] = ", ".join([str(x) for x in thMasses])
 
 
-    df['formula'] = np.array(formulas)
-    df['m/z_calculated'] = np.array(formulaMasses)
-    df = df.dropna(subset = [f'formula'])
-        
+df['formula'] = np.array(formulas)
+df['m/z_calculated'] = np.array(formulaMasses)
+if args.parentFormula != None:
+        df = df.dropna(subset = [f'formula'])
 
 
 
 stats = {"Union" : {}, "Intersection" : {}}
-dfCs = {}
 jaccardTemp = {}
 for join in stats.keys():
     if join == 'Union':
-        dfC = df.copy()
+        dfC = df.fillna(value = 0.0)
     elif join == 'Intersection':
-        dfC = df.dropna(subset = ['mz_A', 'mz_B']).copy()
+        dfC = df.dropna(subset = ['mz_A', 'mz_B'])
     
-    stats[join]['S_A'] = dfC['intensity_A'].sum()
-    stats[join]['S_B'] = dfC['intensity_B'].sum()
+    df[f"D^2_{join}"] = None
+    df[f"G^2_{join}"] = None
     
+
     a_i = dfC['quasi_A']
     b_i = dfC['quasi_B']
     M = dfC.shape[0]
@@ -281,16 +287,18 @@ for join in stats.keys():
     S_A = dfC['quasi_A'].sum()
     S_B = dfC['quasi_B'].sum()
 
+    stats[join]['S_A'] = S_A
+    stats[join]['S_B'] = S_B
 
     
 
     # Calculate D^2
-    D2, pval_D2 = calc_D2(a_i.fillna(value = 0.0), b_i.fillna(value = 0.0), S_A, S_B, M)
+    D2, pval_D2 = calc_D2(a_i, b_i, S_A, S_B)
     stats[join]['D^2'] = D2
     stats[join]['pval_D^2'] = pval_D2
 
     # Calculate G^2
-    G2, pval_G2 = calc_G2(a_i.fillna(value = 0.0), b_i.fillna(value = 0.0), S_A, S_B, M)
+    G2, pval_G2 = calc_G2(a_i, b_i, S_A, S_B)
     stats[join]['G^2'] = G2
     stats[join]['pval_G^2'] = pval_G2
 
@@ -319,7 +327,7 @@ for join in stats.keys():
 
     # Jensen-Shannon divergence
     sTerm = (p_Ai + p_Bi).fillna(value = 0)
-    JSD = H( ( 0.5 * ( p_Ai.fillna(0.0) + p_Bi.fillna(0.0) ) ) ) - ( 0.5 * H_pA ) - ( 0.5 *  H_pB  ) 
+    JSD = H( ( 0.5 * ( p_Ai + p_Bi ) ) ) - ( 0.5 * H_pA ) - ( 0.5 *  H_pB  ) 
     stats[join]['JSD'] = JSD
 
     # Cosine Distance
@@ -331,26 +339,19 @@ for join in stats.keys():
     CSD = ( num / denom )
     stats[join]['Cosine Similarity'] = CSD
 
-    dfC[f"D^2_{join}"] = None
-    dfC[f"G^2_{join}"] = None
+    for i_row, row in df.iterrows():
+        a_i = pd.Series([row['quasi_A']]).fillna(value = 0.0)
+        b_i = pd.Series([row['quasi_B']]).fillna(value = 0.0)
+        D2, _ = calc_D2(a_i, b_i, S_A, S_B)
+        G2, _ = calc_G2(a_i, b_i, S_A, S_B)
+        df.at[i_row, f"D^2_{join}"] = D2
+        df.at[i_row, f"G^2_{join}"] = G2
 
-    for i_row, row in dfC.iterrows():
-        a_i = row['quasi_A']
-        b_i = row['quasi_B']
-        if ((np.isnan(a_i)) or (np.isnan(b_i))) and (join == 'Intersection'): 
-            continue
-        a_i = pd.Series([a_i])
-        b_i = pd.Series([b_i])
-        D2, _ = calc_D2(a_i.fillna(value = 0.0), b_i.fillna(value = 0.0), S_A, S_B, M)
-        G2, _ = calc_G2(a_i.fillna(value = 0.0), b_i.fillna(value = 0.0), S_A, S_B, M)
-        dfC.at[i_row, f"D^2_{join}"] = D2
-        dfC.at[i_row, f"G^2_{join}"] = G2
-    dfCs[join] = dfC
 
 jaccard = jaccardTemp['Intersection'] / jaccardTemp['Union']
 stats['Union']['Jaccard'] = jaccard 
 
-df = pd.merge(dfCs['Union'], dfCs['Intersection'], how = 'outer')
+
 
 
 dfOut = df.rename(columns = {'mz_A' : 'm/z_a',
@@ -364,42 +365,24 @@ dfOut = df.rename(columns = {'mz_A' : 'm/z_a',
 if args.parentFormula == None:
     dfOut = dfOut[['m/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D^2_Union", "G^2_Union", "D^2_Intersection", "G^2_Intersection"]]
 else:
-    # dfOut = dfOut[['formula_A', 'formula_B', 'm/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D^2_Union", "G^2_Union", "D^2_Intersection", "G^2_Intersection"]]
+    #  dfOut = dfOut[['formula_A', 'formula_B', 'm/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D^2_Union", "G^2_Union", "D^2_Intersection", "G^2_Intersection"]]
     dfOut = dfOut[['formula', 'm/z_a', 'm/z_b', 'I_a', 'I_b', 'a', 'b', "D^2_Union", "G^2_Union", "D^2_Intersection", "G^2_Intersection"]]
 
 
 dfStats = pd.DataFrame(stats)
-
 
 writer = pd.ExcelWriter(args.outFile, engine = 'xlsxwriter')
 dfStats.to_excel(writer, sheet_name = "Stats")
 dfOut.to_excel(writer, sheet_name = "Spectra", index = False)
 writer.save()
 
-sideText = ""
-if args.parentFormula != None:
-    sideText += f"Parent Formula : {args.parentFormula}"
-sideText += f"\nM Intersection : {dfStats['Intersection'].loc['M']}"
-sideText += f"\npval Intersection (D^2) : {dfStats['Intersection'].loc['pval_D^2']:.2e}"
-sideText += f"\npval Intersection (G^2) : {dfStats['Intersection'].loc['pval_G^2']:.2e}"
-sideText += f"\nS_A Intersection (quasi) : {dfStats['Intersection'].loc['quasi_A']:.2e}"
-sideText += f"\nS_B Intersection (quasi) : {dfStats['Intersection'].loc['quasi_B']:.2e}"
-sideText += f"\nH(P_A) Intersection : {dfStats['Intersection'].loc['Entropy_A']:.2e}"
-sideText += f"\nH(P_B) Intersection : {dfStats['Intersection'].loc['Entropy_B']:.2e}"
-sideText += f"\nPP(P_A) Intersection : {dfStats['Intersection'].loc['Perplexity_A']:.2e}"
-sideText += f"\nPP(P_B) Intersection : {dfStats['Intersection'].loc['Perplexity_B']:.2e}"
-sideText += f"\ncos (P_A, P_B) Intersection : {dfStats['Intersection'].loc['Cosine Similarity']:.2e}"
-sideText += f"\nJSD (P_A, P_B) Intersection : {dfStats['Intersection'].loc['JSD']:.2e}"
+# # if args.parentFormula != None:
+# #     fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], df['formula_A'], df['formula_B'], normalize = True)
+# # else:
+# #     fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], None, None, normalize = True)
+# fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], None, None, normalize = True)
 
-
-
-# if args.parentFormula != None:
-#     fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], df['formula_A'], df['formula_B'], normalize = True)
-# else:
-#     fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], None, None, normalize = True)
-fig, ax = plotUtils.mirrorPlot(df['mz_A'], df['mz_B'], df['intensity_A'], df['intensity_B'], None, None, normalize = True, sideText = sideText)
-
-plt.title = args.pltTitle
-plt.savefig(args.outPlot, bbox_inches = 'tight') 
+# plt.title = args.pltTitle
+# plt.savefig(args.outPlot, bbox_inches = 'tight') 
 
 
