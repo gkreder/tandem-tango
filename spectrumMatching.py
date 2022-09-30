@@ -36,13 +36,13 @@ parser.add_argument("--R", required = True, type = float) # Instrument Resolutio
 # Optional with defaults
 parser.add_argument("--gainControl", default = False )
 parser.add_argument("--quasiCutoff", default = 2, type = float)
-parser.add_argument("--absCutoff", default = 50, type = float)
+parser.add_argument("--absCutoff", default = 0, type = float)
 parser.add_argument("--relCutoff", default = 0, type = float)
-parser.add_argument("--resClearance", default = 0.02, type = float)
-parser.add_argument("--matchAcc", default = 0.01, type = float)
+parser.add_argument("--resClearance", default = None) # Defaults to 200 / R
+parser.add_argument("--matchAcc", default = None) # Defaults to 100 / R
 parser.add_argument("--pltTitle", default = "")
 # Parent Formula related args
-parser.add_argument("--subFormulaTol", default = 0.01, type = float)
+parser.add_argument("--subFormulaTol", default = None) # Defaults to 100 / R
 parser.add_argument("--DUMin", default = -0.5) # can be "NONE" as well
 
 # Optional with no defaults
@@ -50,6 +50,22 @@ parser.add_argument("--parentFormula", default = None)
 
 
 args = parser.parse_args()
+
+if args.resClearance == None:
+    args.resClearance = 200 / args.R
+else:
+    args.resClearance = float(args.resClearance)
+
+if args.matchAcc == None:
+    args.matchAcc = 100 / args.R
+else:
+    args.matchAcc = float(args.matchAcc)
+
+if args.subFormulaTol == None:
+    args.subFormulaTol = 100 / args.R
+else:
+    args.subFormulaTol = float(args.subFormulaTol)
+
 
 # ----------------------------------------
 
@@ -136,39 +152,57 @@ for i_d, d in enumerate(data):
     d['intensities'] = d['intensities'][indices]
     d['mzs'] = d['mzs'][indices]
 
+    # Conversion to quasicounts by dividing the intensity by gamma_i(1 + delta)
+    d['quasi'] = d['intensities'] / ( args.quasiX *  ( np.power(d['mzs'], args.quasiY) ) )
+    
+    # Eliminating peaks with quasicount < quasicount intensity cutoff
+    indices = np.where(d['quasi'] >= args.quasiCutoff)
+    d['intensities'] = d['intensities'][indices]
+    d['mzs'] = d['mzs'][indices]
+    d['quasi'] = d['quasi'][indices]
+
     # Eliminating peaks with m/z < parent peak m/z
     indices = np.where(d['mzs'] <= args.parentMZ)
     d['mzs'] = d['mzs'][indices]
     d['intensities'] = d['intensities'][indices]
+    d['quasi'] = d['quasi'][indices]
 
     # Eliminate all paeks with normalized intensity < relative intensity cutoff
     indices = np.where((d['intensities'] / max(d['intensities'])) >= args.relCutoff)
     d['intensities'] = d['intensities'][indices]
     d['mzs'] = d['mzs'][indices]
+    d['quasi'] = d['quasi'][indices]
 
     # Sort remaining peaks in spectrum from most to least intense
     sOrder = np.argsort(d['intensities'])[::-1]
     d['intensities'] = d['intensities'][sOrder]
     d['mzs'] = d['mzs'][sOrder]
+    d['quasi'] = d['quasi'][sOrder]
 
     print("Resolution clearance....")
     # For each peak (from most intense to least), eliminate any peaks within the closed interval [m/z +- resolution clearance]
     newInts = []
     newMzs = []
+    newQuasis = []
     ints = np.array(d['intensities'].copy())
     mzs = np.array(d['mzs'].copy())
+    quasis = np.array(d['quasi'].copy())
     i = 0
     while len(ints) > 0:
         i += 1
         mz = mzs[0]
         intensity = ints[0]
+        quasi = quasis[0]
         keepIndices = np.where(np.abs(mzs - mz) > args.resClearance)
         newInts = newInts + [intensity] # + list(ints[keepIndices])
         newMzs = newMzs + [mz]  #+ list(mzs[keepIndices])
+        newQuasis = newQuasis + [quasi]
         ints = ints[keepIndices]
         mzs = mzs[keepIndices]
+        quasis = quasis[keepIndices]
     d['intensities'] = np.array(newInts)
     d['mzs'] = np.array(newMzs)
+    d['quasi'] = np.array(newQuasis)
 
     # # Filtering for formulas if parent formula is specified. Keep only peaks that are assigned a subformula within the 
     # # specified user tolerance. Discard all other peaks
@@ -197,7 +231,7 @@ for i_d, d in enumerate(data):
 
 dfs = []
 for d in data:
-    df = pd.DataFrame({"mz" : d['mzs'], "intensity" : d['intensities']})
+    df = pd.DataFrame({"mz" : d['mzs'], "intensity" : d['intensities'], 'quasi' : d['quasi']}) 
     # if args.parentFormula != None:
     #     df['formula'] = d['formulas']
     #     df['m/z_calculated'] = d['formulaMasses']
@@ -217,9 +251,9 @@ for i, suf in enumerate(['A', 'B']):
     df = pd.concat([df, dfRem])
 
 
-# Convert all peaks to "quasicounts" by dividing the intensity by gamma_i(1 + delta)
-for suf in ['A', 'B']:
-    df[f"quasi_{suf}"] = df[f'intensity_{suf}'] / ( args.quasiX *  ( np.power(df[f'mz_{suf}'], args.quasiY) ) )
+# # Convert all peaks to "quasicounts" by dividing the intensity by gamma_i(1 + delta)
+# for suf in ['A', 'B']:
+#     df[f"quasi_{suf}"] = df[f'intensity_{suf}'] / ( args.quasiX *  ( np.power(df[f'mz_{suf}'], args.quasiY) ) )
 
 
 df = df.reset_index(drop = True)
@@ -382,16 +416,16 @@ sideText = ""
 if args.parentFormula != None:
     sideText += f"Parent Formula : {args.parentFormula}"
 sideText += f"\nM Intersection : {dfStats['Intersection'].loc['M']}"
-sideText += f"\npval Intersection (D^2) : {dfStats['Intersection'].loc['pval_D^2']:.2e}"
-sideText += f"\npval Intersection (G^2) : {dfStats['Intersection'].loc['pval_G^2']:.2e}"
-sideText += f"\nS_A Intersection (quasi) : {dfStats['Intersection'].loc['quasi_A']:.2e}"
-sideText += f"\nS_B Intersection (quasi) : {dfStats['Intersection'].loc['quasi_B']:.2e}"
-sideText += f"\nH(P_A) Intersection : {dfStats['Intersection'].loc['Entropy_A']:.2e}"
-sideText += f"\nH(P_B) Intersection : {dfStats['Intersection'].loc['Entropy_B']:.2e}"
-sideText += f"\nPP(P_A) Intersection : {dfStats['Intersection'].loc['Perplexity_A']:.2e}"
-sideText += f"\nPP(P_B) Intersection : {dfStats['Intersection'].loc['Perplexity_B']:.2e}"
-sideText += f"\ncos (P_A, P_B) Intersection : {dfStats['Intersection'].loc['Cosine Similarity']:.2e}"
-sideText += f"\nJSD (P_A, P_B) Intersection : {dfStats['Intersection'].loc['JSD']:.2e}"
+sideText += f"\npval (D^2) : {dfStats['Intersection'].loc['pval_D^2']:.2e}"
+sideText += f"\npval (G^2) : {dfStats['Intersection'].loc['pval_G^2']:.2e}"
+sideText += f"\nS_A (quasi) : {dfStats['Intersection'].loc['quasi_A']:.2e}"
+sideText += f"\nS_B (quasi) : {dfStats['Intersection'].loc['quasi_B']:.2e}"
+sideText += f"\nH(P_A) : {dfStats['Intersection'].loc['Entropy_A']:.2e}"
+sideText += f"\nH(P_B) : {dfStats['Intersection'].loc['Entropy_B']:.2e}"
+sideText += f"\nPP(P_A) : {dfStats['Intersection'].loc['Perplexity_A']:.2e}"
+sideText += f"\nPP(P_B) : {dfStats['Intersection'].loc['Perplexity_B']:.2e}"
+sideText += f"\ncos (P_A, P_B) : {dfStats['Intersection'].loc['Cosine Similarity']:.2e}"
+sideText += f"\nJSD (P_A, P_B) : {dfStats['Intersection'].loc['JSD']:.2e}"
 
 
 
