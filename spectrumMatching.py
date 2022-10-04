@@ -415,7 +415,7 @@ writer.save()
 sideText = ""
 if args.parentFormula != None:
     sideText += f"Parent Formula : {args.parentFormula}"
-sideText += f"\n Parent m/z : {args.parentMZ:.2f}"
+sideText += f"\n Parent m/z : {args.parentMZ:.5f}"
 sideText += f"\nM Intersection : {int(dfStats['Intersection'].loc['M'])}"
 sideText += f"\npval (D^2) : {dfStats['Intersection'].loc['pval_D^2']:.2e}"
 sideText += f"\npval (G^2) : {dfStats['Intersection'].loc['pval_G^2']:.2e}"
