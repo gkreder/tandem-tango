@@ -247,7 +247,7 @@ df = pd.merge_asof(dfs[0], dfs[1], tolerance = 0.005, on = 'mz_join', suffixes =
 for i, suf in enumerate(['A', 'B']):
     dft = dfs[i]
     dfRem = dft[~dft['mz'].isin(df[f'mz_{suf}'])]
-    dfRem = dfRem.rename(columns = {x : f"{x}_{suf}" for x in ['mz', 'intensity', 'formula', 'm/z_calculated']}).drop(columns = 'mz_join')
+    dfRem = dfRem.rename(columns = {x : f"{x}_{suf}" for x in ['mz', 'intensity', 'formula', 'm/z_calculated', 'quasi']}).drop(columns = 'mz_join') #quasi?
     df = pd.concat([df, dfRem])
 
 
