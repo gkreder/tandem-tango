@@ -30,7 +30,8 @@ parser.add_argument("--outPlot", required = True)
 parser.add_argument("--quasiX", required = True, type = float)
 parser.add_argument("--quasiY", required = True, type = float)
 # Agilent (MH) starts at 1, MsConvert starts at 0. So Agilent index of 100 = mzML index of 99
-parser.add_argument("--indexFormat", choices = ['Agilent', 'MsConvert'], required = True)
+# parser.add_argument("--indexFormat", choices = ['Agilent', 'MsConvert'], required = True)
+parser.add_argument("--startingIndex", type = int, required = True) # Set to 1 for indices taken from Agilent (MassHunter) since openMS starts indices at 0, need to offset
 parser.add_argument("--R", required = True, type = float) # Instrument Resolution FWHM = 200 m/z
 
 # Optional with defaults
@@ -67,6 +68,12 @@ else:
     args.subFormulaTol = float(args.subFormulaTol)
 
 
+for dn in [args.outFile, args.outPlot]:
+    if not os.path.exists(os.path.dirname(dn)):
+        os.system(f'mkdir -p {os.path.dirname(dn)}')
+
+
+
 # ----------------------------------------
 
 def calc_G2(a_i, b_i, S_A, S_B, M):
@@ -99,9 +106,11 @@ if str(args.DUMin).capitalize() == "None":
     args.DUMin = None
 
 
-if args.indexFormat == 'Agilent':
-    args.index1 = args.index1 - 1
-    args.index2 = args.index2 - 1
+# if args.indexFormat == 'Agilent':
+    # args.index1 = args.index1 - 1
+    # args.index2 = args.index2 - 1
+args.index1 = args.index1 - args.startingIndex
+args.index2 = args.index2 - args.startingIndex
 
 
 
