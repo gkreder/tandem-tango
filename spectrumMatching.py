@@ -112,8 +112,6 @@ if str(args.DUMin).capitalize() == "None":
 args.index1 = args.index1 - args.startingIndex
 args.index2 = args.index2 - args.startingIndex
 
-
-
 # ----------------------------------------
 
 data = ({}, {})
