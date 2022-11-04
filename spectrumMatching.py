@@ -249,7 +249,7 @@ for d in data:
     dfs.append(df)
 
 
-df = pd.merge_asof(dfs[0], dfs[1], tolerance = args.MatchAcc, on = 'mz_join', suffixes = ('_A', '_B'), direction = 'nearest').drop(columns = 'mz_join')
+df = pd.merge_asof(dfs[0], dfs[1], tolerance = args.matchAcc, on = 'mz_join', suffixes = ('_A', '_B'), direction = 'nearest').drop(columns = 'mz_join')
 
 for i, suf in enumerate(['A', 'B']):
     dft = dfs[i]
