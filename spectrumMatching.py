@@ -168,13 +168,13 @@ for i_d, d in enumerate(data):
     d['mzs'] = d['mzs'][indices]
     d['quasi'] = d['quasi'][indices]
 
-    # Eliminating peaks with m/z < parent peak m/z
-    indices = np.where(d['mzs'] <= args.parentMZ)
+    # Eliminating peaks with m/z > parent peak m/z
+    indices = np.where(d['mzs'] <= args.parentMZ + args.matchAcc)
     d['mzs'] = d['mzs'][indices]
     d['intensities'] = d['intensities'][indices]
     d['quasi'] = d['quasi'][indices]
 
-    # Eliminate all paeks with normalized intensity < relative intensity cutoff
+    # Eliminate all peaks with normalized intensity < relative intensity cutoff
     indices = np.where((d['intensities'] / max(d['intensities'])) >= args.relCutoff)
     d['intensities'] = d['intensities'][indices]
     d['mzs'] = d['mzs'][indices]
@@ -249,7 +249,7 @@ for d in data:
     dfs.append(df)
 
 
-df = pd.merge_asof(dfs[0], dfs[1], tolerance = 0.005, on = 'mz_join', suffixes = ('_A', '_B'), direction = 'nearest').drop(columns = 'mz_join')
+df = pd.merge_asof(dfs[0], dfs[1], tolerance = args.MatchAcc, on = 'mz_join', suffixes = ('_A', '_B'), direction = 'nearest').drop(columns = 'mz_join')
 
 for i, suf in enumerate(['A', 'B']):
     dft = dfs[i]
