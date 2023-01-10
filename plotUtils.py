@@ -43,19 +43,24 @@ def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, f
         formulas_b = [None for x in mzs_b]
     packageA = sorted(zip(mzs_a, intensities_a, formulas_a), key = lambda x : x[1], reverse = True)
     packageB = sorted(zip(mzs_b, intensities_b, formulas_b), key = lambda x : x[1], reverse = True)
-    for i_row in range(labelCutoff):
-        mz_a, int_a, formula_a = packageA[i_row]
-        mz_b, int_b, formula_b = packageB[i_row]
-        # if i_row == labelCutoff:
-            # break
-        # texts.append(plt.text(row['mz_A'], row['intensity_A'] + tAdjust, row['formula_A'], ha = 'center'))
-        if formula_a != None:
-            texts.append(plt.text(mz_a, int_a, formula_a, ha = 'center', rotation = rotation))
-        if formula_b != None:
-            texts.append(plt.text(mz_b, -int_b, formula_b, ha = 'center', rotation = rotation))
-        # texts.append(plt.text(row['mz_B'], - row['intensity_B'] - tAdjust, row['formula_B'], ha = 'center'))
-        # texts.append(plt.text(row['mz_B'], - row['intensity_B'], row['formula_B'], ha = 'center'))
-        # break
+    for iPackage, package in enumerate([packageA, packageB]):
+        for i_row in range(labelCutoff):
+            if i_row >= len(package):
+                break
+            mz_t, int_t, formula_t = package[i_row]
+            if iPackage == 1:
+                int_t = -1 * int_t
+            if formula_t != None:
+                texts.append(plt.text(mz_t, int_t, formula_t, ha = 'center', rotation = rotation))
+    # for i_row in range(labelCutoff):
+    #     mz_a, int_a, formula_a = packageA[i_row]
+    #     mz_b, int_b, formula_b = packageB[i_row]
+        
+    #     if formula_a != None:
+    #         texts.append(plt.text(mz_a, int_a, formula_a, ha = 'center', rotation = rotation))
+    #     if formula_b != None:
+    #         texts.append(plt.text(mz_b, -int_b, formula_b, ha = 'center', rotation = rotation))
+        
 
     adjust_text(texts, arrowprops=dict(arrowstyle='-', color='black'), ha = 'center') # , add_objects = [vlinesA, vlinesB]
 
