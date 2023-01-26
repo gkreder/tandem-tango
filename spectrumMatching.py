@@ -308,8 +308,6 @@ for join in stats.keys():
     elif join == 'Intersection':
         dfC = df.dropna(subset = ['mz_A', 'mz_B']).copy()
     
-    stats[join]['S_A'] = dfC['intensity_A'].sum()
-    stats[join]['S_B'] = dfC['intensity_B'].sum()
     
     a_i = dfC['quasi_A']
     b_i = dfC['quasi_B']
@@ -323,6 +321,8 @@ for join in stats.keys():
     # S_B = dfC['intensity_B'].sum()
     S_A = dfC['quasi_A'].sum()
     S_B = dfC['quasi_B'].sum()
+    stats[join]['S_A'] = S_A
+    stats[join]['S_B'] = S_B
 
 
     
