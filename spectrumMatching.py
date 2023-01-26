@@ -323,6 +323,8 @@ for join in stats.keys():
     S_B = dfC['quasi_B'].sum()
     stats[join]['S_A'] = S_A
     stats[join]['S_B'] = S_B
+    stats[join]['S_A (raw)'] = dfC['intensity_A'].sum()
+    stats[join]['S_B (raw)'] = dfC['intensity_B'].sum()
 
 
     
@@ -415,7 +417,7 @@ dfStats = pd.DataFrame(stats)
 
 
 writer = pd.ExcelWriter(args.outFile, engine = 'xlsxwriter')
-dfStats.to_excel(writer, sheet_name = "Stats")
+dfStats.drop(labels =['quasi_A', 'quasi_B'], axis = 0).to_excel(writer, sheet_name = "Stats") 
 dfOut.to_excel(writer, sheet_name = "Spectra", index = False)
 writer.save()
 
