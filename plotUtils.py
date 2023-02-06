@@ -9,7 +9,7 @@ from matplotlib.ticker import ScalarFormatter, FuncFormatter
 import matplotlib.ticker 
 # -------------------------------------------------------
 
-def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, formulas_b = None, normalize = True, rotation = 90, sideText = None):
+def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, formulas_b = None, normalize = True, rotation = 90, sideText = None, fontfamily = "Arial"):
     plt.rcParams['font.size'] = 16
     fig, ax = plt.subplots(figsize = (12,9))
     # plt.stem(df['mz_A'], df['intensity_A'], linefmt = 'b-', markerfmt = ' ', basefmt = ' ')
@@ -67,7 +67,7 @@ def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, f
     ylim = ax.get_ylim()
     xlim = ax.get_xlim()
     if sideText != None:
-        plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), 0, sideText)
+        plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), 0, sideText, fontfamily = fontfamily)
 
 
 
