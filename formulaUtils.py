@@ -190,7 +190,7 @@ def findBestForm(mass, parentForm, toleranceDa = 0.005, charge = 0, verbose = Fa
 
  
 def generateAllForms(parentForm):
-    l1 = [[atom for x in range(atomNum)] for atom, atomNum, _, _ in molmass.Formula(parentForm).composition()]
+    l1 = [[atom for x in range(atomNum)] for atom, atomNum, _, _ in molmass.Formula(parentForm).composition().astuple()]
     l2 = list(np.concatenate(l1). flat)
     mForms = (molmass.Formula("".join(x)) for l in range(1, len(l2) + 1) for x in more_itertools.distinct_combinations(l2, l))
     outList = [(m.formula, m.isotope.mass) for m in mForms]
@@ -230,7 +230,7 @@ def findBestForms(mass, allForms, toleranceDa = 0.005, charge = 0, verbose = Fal
             if form == None:
                 continue
             DuForm = 0
-            for E, nE, _, _ in molmass.Formula(form).composition():
+            for E, nE, _, _ in molmass.Formula(form).composition().astuple():
                 if E in valTable.keys():
                     vE = valTable[E]
                 else:
