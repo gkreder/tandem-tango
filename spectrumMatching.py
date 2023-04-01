@@ -518,6 +518,7 @@ for plotJoin in ["Union", "Intersection"]:
     
     # Normalized 0 to 1 scale
     fig, ax = plotUtils.mirrorPlot(dfPlot['mz_A'], dfPlot['mz_B'], dfPlot['intensity_A'], dfPlot['intensity_B'], None, None, normalize = True, sideText = sideText)
+    ax.set_xlim([0, ax.get_xlim()[1]])
     ylim = ax.get_ylim()
     xlim = ax.get_xlim()
     ylimMax = max([abs(x) for x in ylim])
@@ -546,6 +547,7 @@ for plotJoin in ["Union", "Intersection"]:
                                    np.log10(dfPlot['quasi_B']), None, None, 
                                    normalize = False, sideText = sideText,
                                    fig = fig, ax = ax)
+    ax.set_xlim([0, ax.get_xlim()[1]])
     ylim = ax.get_ylim()
     xlim = ax.get_xlim()
     ylimMax = max([abs(x) for x in ylim])
