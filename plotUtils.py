@@ -9,17 +9,23 @@ from matplotlib.ticker import ScalarFormatter, FuncFormatter
 import matplotlib.ticker 
 # -------------------------------------------------------
 
-def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, formulas_b = None, normalize = True, rotation = 90, sideText = None, fontfamily = "Arial"):
+def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, formulas_b = None, normalize = True, rotation = 90, 
+               sideText = None, fontfamily = "DejaVu Sans", fig = None, ax = None, overrideColor = None):
     plt.rcParams['font.size'] = 16
-    fig, ax = plt.subplots(figsize = (12,9))
+    if fig == None and ax == None:
+        fig, ax = plt.subplots(figsize = (12,9))
     # plt.stem(df['mz_A'], df['intensity_A'], linefmt = 'b-', markerfmt = ' ', basefmt = ' ')
     if normalize:
         intensities_a = intensities_a / intensities_a.max()
         intensities_b = intensities_b / intensities_b.max()
         # intensities_a = np.array([x / max(intensities_a) for x in intensities_a])
         # intensities_b = np.array([x / max(intensities_b) for x in intensities_b])
-    vlinesA = ax.vlines(mzs_a, 0, intensities_a, color = '#67a9cf', alpha = 0.9, linewidth = 0.75)
-    vlinesB = ax.vlines(mzs_b, 0, -intensities_b, color = '#ef8a62', alpha = 0.9, linewidth = 0.75)
+    if overrideColor == None:
+        vlinesA = ax.vlines(mzs_a, 0, intensities_a, color = '#67a9cf', alpha = 0.9, linewidth = 0.75)
+        vlinesB = ax.vlines(mzs_b, 0, -intensities_b, color = '#ef8a62', alpha = 0.9, linewidth = 0.75)
+    else:
+        vlinesA = ax.vlines(mzs_a, 0, intensities_a, color = overrideColor, alpha = 0.3, linewidth = 0.25)
+        vlinesB = ax.vlines(mzs_b, 0, -intensities_b, color = overrideColor, alpha = 0.3, linewidth = 0.25)
     ax.axhline(0, 0, 1, color = 'black', alpha = 0.75, linewidth = 0.5)
 
     fig.canvas.draw()
@@ -61,13 +67,13 @@ def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, f
     #     if formula_b != None:
     #         texts.append(plt.text(mz_b, -int_b, formula_b, ha = 'center', rotation = rotation))
         
-
-    adjust_text(texts, arrowprops=dict(arrowstyle='-', color='black'), ha = 'center') # , add_objects = [vlinesA, vlinesB]
+    if len(texts) > 0:
+        adjust_text(texts, arrowprops=dict(arrowstyle='-', color='black'), ha = 'center') # , add_objects = [vlinesA, vlinesB]
 
     ylim = ax.get_ylim()
     xlim = ax.get_xlim()
     if sideText != None:
-        plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), 0, sideText, fontfamily = fontfamily)
+        plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), - ( ( ylim[1] - ylim[0] ) *  0.075 ), sideText, fontfamily = fontfamily)
 
 
 
