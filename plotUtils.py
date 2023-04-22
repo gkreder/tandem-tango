@@ -30,12 +30,12 @@ def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, f
 
     fig.canvas.draw()
 
-    if normalize:
-        @FuncFormatter
-        def my_formatter(x, pos):
-            # return( "{:.2e}".format(abs(x))) # for scientific notation
-            return( f"{abs(x)}")
-        ax.get_yaxis().set_major_formatter(my_formatter)
+    # if normalize:
+    @FuncFormatter
+    def my_formatter(x, pos):
+        # return( "{:.2e}".format(abs(x))) # for scientific notation
+        return( f"{abs(x)}")
+    ax.get_yaxis().set_major_formatter(my_formatter)
     
     ylim = ax.get_ylim()
     tAdjust = ( ylim[1] - ylim[0] ) * 0.02
