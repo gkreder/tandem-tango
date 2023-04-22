@@ -73,6 +73,15 @@ def run_matching(args):
 
 
 
+    suf1 = os.path.splitext(os.path.basename(os.path.basename(args.mzml1)))[0]
+    suf2 = os.path.splitext(os.path.basename(os.path.basename(args.mzml2)))[0]
+    ind1 = args.index1 + args.startingIndex
+    ind2 = args.index2 + args.startingIndex
+    if args.parentFormula == None:
+        formString = "noFormula"
+    else:
+        formString = "formula"
+    baseOutFileName = f"{suf1}_Scan_{ind1}_vs_{suf2}_Scan_{ind2}_{formString}"
 
     ############################################################
     # Spectrum Filtering
@@ -214,7 +223,16 @@ def run_matching(args):
             d['quasi'] = np.array(newQuasis)
 
         if not (len(d['quasi']) > 0 and d['quasi'].sum() >= args.minSpectrumQuasiCounts and len(d['quasi']) >= args.minTotalPeaks):
-            sys.exit('gkreder - I put this in here to stop empty spectra. Refer to 2022-11-25_comparisonSpcetrumFiltering.ipynb')
+            errorFile = os.path.join(args.outDir, f"{baseOutFileName}.log")
+            with open(errorFile, 'w') as f:
+                if len(d['quasi']) == 0:
+                    print('The number of quasicounted peaks equals 0', file = f)
+                if d['quasi'].sum() < args.minSpectrumQuasiCounts:
+                    print(f"The spectrum quasicount sum ({d['quasi'].sum()}) did not exceed the minimum required ({args.minSpectrumQuasiCounts})", file = f)
+                if len(d['quasi']) < args.minTotalPeaks:
+                    print(f"There were too few peaks ({len(d['quasi'])}) compared to the required minimum ({args.minTotalPeaks})", file = f)
+            return
+            # sys.exit('gkreder - I put this in here to stop empty spectra. Refer to 2022-11-25_comparisonSpcetrumFiltering.ipynb')
 
 
 
@@ -451,15 +469,6 @@ def run_matching(args):
     # dfOut.drop(labels = [x for x in dfOut.columns if "_Intersection" in x], axis = 1).to_excel(writer, sheet_name = "Spectra_Union", index = False)
     # # dfOut.to_excel(writer, sheet_name = "Spectra", index = False)
     # writer.save()
-    suf1 = os.path.splitext(os.path.basename(os.path.basename(args.mzml1)))[0]
-    suf2 = os.path.splitext(os.path.basename(os.path.basename(args.mzml2)))[0]
-    ind1 = args.index1 + args.startingIndex
-    ind2 = args.index2 + args.startingIndex
-    if args.parentFormula == None:
-        formString = "noFormula"
-    else:
-        formString = "formula"
-    baseOutFileName = f"{suf1}_Scan_{ind1}_vs_{suf2}_Scan_{ind2}_{formString}"
     outExcelFile = os.path.join(args.outDir, f"{baseOutFileName}.xlsx")
 
     writer = pd.ExcelWriter(outExcelFile, engine = 'xlsxwriter')
