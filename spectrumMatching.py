@@ -115,7 +115,8 @@ def run_matching(args):
     # pyms.IonSource.Polarity.NEGATIVE
     if len(set([d['polarity'] for d in data])) != 1:
         sys.exit('Error - the spectra polarities must match')
-    polarity = ['Negative', 'Positive'][set([d['polarity'] for d in data]).pop()]
+    polarity = {pyms.IonSource.Polarity.NEGATIVE : "Negative", pyms.IonSource.Polarity.POSITIVE : "Positive"}[set([d['polarity'] for d in data]).pop()]
+    # polarity = ['Negative', 'Positive'][set([d['polarity'] for d in data]).pop()]
 
     if set([d['spec'].getMSLevel() for d in data]) != set([2]):
         for i_d, d in enumerate(data):
@@ -430,6 +431,7 @@ def run_matching(args):
         else:
             pft = args.parentFormula 
         stats['Union']['Precursor formula'] = pft
+        stats['Union']["Precursor m/z"] = args.parentMZ
         stats['Union']['Polarity'] = polarity
         if args.quasiY == 0.0:
             stats['Union']['Quasicount scaling function'] = f"{args.quasiX}"
@@ -457,7 +459,14 @@ def run_matching(args):
 
     dfStats = pd.DataFrame(stats)
     if len(dfCs['Intersection']) <= 1: # Filter out based on M = 0 or 1
-        sys.exit("gkreder - put this in outside of loop context. See 2022-11-25_comparisonPvalCalc.ipynb for original error")
+        # sys.exit("gkreder - put this in outside of loop context. See 2022-11-25_comparisonPvalCalc.ipynb for original error")
+        errorFile = os.path.join(args.outDir, f"{baseOutFileName}.log")
+        with open(errorFile, 'w') as f:
+            s = ""
+            if args.parentFormula:
+                s += " and parent formula filtering "
+            print(f"There were too few peaks after merging spectra{s}({len(dfCs['Intersection'])})", file = f)
+        return
     # outRows.append([iPair, spectraMeta.loc[iSpec]['sourceFile'], 
                     # spectraMeta.iloc[iSpec]['specIndex_mzML'], 
                     # spectraMeta.loc[jSpec]['sourceFile'], 
@@ -607,7 +616,6 @@ def get_args(arg_string = None):
     parser.add_argument("--quasiCutoff", default = quasiCutoffDefault, type = float)
     parser.add_argument("--minSpectrumQuasiCounts", default = 20, type = float)
     parser.add_argument("--minTotalPeaks", default = 2, type = float)
-    parser.add_argument("--mode", required = True)
     parser.add_argument("--outDir", required = True)
     parser.add_argument("--parentMZ", required = True, type = float)
     parser.add_argument("--parentFormula", default = None)

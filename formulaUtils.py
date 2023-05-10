@@ -5,6 +5,7 @@ import molmass
 import matplotlib.pyplot as plt
 import cvxpy as cp
 import more_itertools
+import re
 # from pyscipopt.scip import Model 
 
 def chargedMass(mass, charge):
@@ -192,7 +193,12 @@ def findBestForm(mass, parentForm, toleranceDa = 0.005, charge = 0, verbose = Fa
 def generateAllForms(parentForm):
     l1 = [[atom for x in range(atomNum)] for atom, atomNum, _, _ in molmass.Formula(parentForm).composition().astuple()]
     l2 = list(np.concatenate(l1). flat)
-    mForms = (molmass.Formula("".join(x)) for l in range(1, len(l2) + 1) for x in more_itertools.distinct_combinations(l2, l))
+
+    mForms_tuples = (x for l in range(1, len(l2) + 1) for x in more_itertools.distinct_combinations(l2, l))
+    mForms_tuples_converted = (tuple((molmass.Formula(x).formula for x in t)) for t in mForms_tuples)
+    mForms = (molmass.Formula("".join(t)) for t in mForms_tuples_converted)
+    # mForms = (molmass.Formula("".join(x)) for l in range(1, len(l2) + 1) for x in more_itertools.distinct_combinations(l2, l))
+    
     outList = [(m.formula, m.isotope.mass) for m in mForms]
     return(outList)
 
@@ -231,6 +237,7 @@ def findBestForms(mass, allForms, toleranceDa = 0.005, charge = 0, verbose = Fal
                 continue
             DuForm = 0
             for E, nE, _, _ in molmass.Formula(form).composition().astuple():
+                E = re.sub(r'\d', '', E) # strip the atom of the isotope label if it has one
                 if E in valTable.keys():
                     vE = valTable[E]
                 else:
