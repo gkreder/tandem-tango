@@ -81,7 +81,10 @@ def run_matching(args):
         formString = "noFormula"
     else:
         formString = "formula"
-    baseOutFileName = f"{suf1}_Scan_{ind1}_vs_{suf2}_Scan_{ind2}_{formString}"
+    if not args.outPrefix:
+        baseOutFileName = f"{suf1}_Scan_{ind1}_vs_{suf2}_Scan_{ind2}_{formString}"
+    else:
+        baseOutFileName = f"{args.outPrefix}"
 
     ############################################################
     # Spectrum Filtering
@@ -617,6 +620,7 @@ def get_args(arg_string = None):
     parser.add_argument("--minSpectrumQuasiCounts", default = 20, type = float)
     parser.add_argument("--minTotalPeaks", default = 2, type = float)
     parser.add_argument("--outDir", required = True)
+    parser.add_argument("--outPrefix", default = None)
     parser.add_argument("--parentMZ", required = True, type = float)
     parser.add_argument("--parentFormula", default = None)
 
