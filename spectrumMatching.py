@@ -519,7 +519,10 @@ def run_matching(args):
             sideText += "\n"
         
         # Normalized 0 to 1 scale
-        fig, ax = plotUtils.mirrorPlot(dfPlot['mz_A'], dfPlot['mz_B'], dfPlot['intensity_A'], dfPlot['intensity_B'], None, None, normalize = True, sideText = sideText)
+        fig, ax = plt.subplots(figsize = (12,9))
+        plotUtils.mirrorPlot(dfPlot['mz_A'], dfPlot['mz_B'], dfPlot['intensity_A'], 
+                             dfPlot['intensity_B'], None, None, normalize = True, 
+                             sideText = sideText, fig = fig, ax = ax)
         ax.set_xlim([0, ax.get_xlim()[1]])
         ylim = ax.get_ylim()
         xlim = ax.get_xlim()
@@ -542,10 +545,10 @@ def run_matching(args):
         plt.close()
 
         # Absolute quasicount scale 
-        dfPlot = dfPlot.loc[lambda x : (x['quasi_A'] > 1) & (x['quasi_B'] > 1)]
+        # dfPlot = dfPlot.loc[lambda x : (x['quasi_A'] > 1) & (x['quasi_B'] > 1)]
         gda, gdb = grayData
         fig, ax = plotUtils.mirrorPlot(gda['mzs'], gdb['mzs'], np.log10(gda['quasi']), np.log10(gdb['quasi']), None, None, normalize = False, sideText = sideText, overrideColor = "gray")
-        fig, ax = plotUtils.mirrorPlot(dfPlot['mz_A'], dfPlot['mz_B'], np.log10(dfPlot['quasi_A']), 
+        plotUtils.mirrorPlot(dfPlot['mz_A'], dfPlot['mz_B'], np.log10(dfPlot['quasi_A']), 
                                     np.log10(dfPlot['quasi_B']), None, None, 
                                     normalize = False, sideText = sideText,
                                     fig = fig, ax = ax)
@@ -567,6 +570,8 @@ def run_matching(args):
         ax.set_ylim((-ylimMax, ylimMax))
         plt.savefig(plotFilePair, bbox_inches = 'tight') 
         plt.close()
+
+        
 
 
 
