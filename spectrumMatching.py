@@ -225,7 +225,8 @@ def run_matching(args):
             d['intensities'] = np.array(newInts)
             d['mzs'] = np.array(newMzs)
             d['quasi'] = np.array(newQuasis)
-
+        
+        # Note - these filters were originally intended for the CDF plots
         if not (len(d['quasi']) > 0 and d['quasi'].sum() >= args.minSpectrumQuasiCounts and len(d['quasi']) >= args.minTotalPeaks):
             errorFile = os.path.join(args.outDir, f"{baseOutFileName}.log")
             with open(errorFile, 'w') as f:
