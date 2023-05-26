@@ -27,6 +27,36 @@ import plotUtils
 quasiCutoffDefault = 5
 
 
+
+def scrape_spectra_hits(**kwargs):
+    inFiles = kwargs['inFiles'].split(",")
+    hit_rows = []
+    for inFile in tqdm(inFiles):
+        if inFile.startswith('"'):
+            inFile = inFile[1 : ]
+        if inFile.endswith('"'):
+            inFile = inFile[ : -1]
+        mse = pyms.MSExperiment()
+        mzmlFile = pyms.MzMLFile()
+        options =mzmlFile.getOptions()
+        # options.setMetadataOnly(True)
+        mzmlFile.setOptions(options)
+        mzmlFile.load(inFile, mse)
+        for iSpec, spec in enumerate(mse.getSpectra()):
+            if spec.getMSLevel() != 2:
+                continue
+            targetIsolationMZ = spec.getPrecursors()[0].getMZ()
+            diff = abs(float(kwargs['Targeted m/z']) - targetIsolationMZ)
+            if diff <= float(kwargs['isolationMZTol']):
+                bRT = float(kwargs['Begin']) * 60
+                eRT = float(kwargs['End']) * 60
+                if spec.getRT() >= bRT and spec.getRT() <= eRT:
+                    # commentText = f"sourceFile,nativeID,specIndex_mzML,specRT_sec={os.path.basename(inFile)},{spec.getNativeID()},{iSpec},{spec.getRT()}"
+                    hit_rows.append((inFile,spec.getNativeID(),iSpec,spec.getRT()))
+    return(hit_rows)
+        
+    
+
 def run_matching(args):
 
     args.resClearance = 200 / args.R
@@ -37,10 +67,6 @@ def run_matching(args):
 
     args.index1 = args.index1 - args.startingIndex
     args.index2 = args.index2 - args.startingIndex
-
-
-
-
 
     # Matching accuracy m/z tolerance must be <= 0.5 x (resolution clearance width) or the peak matching will break
     if args.matchAcc > ( args.resClearance * 0.5):
@@ -90,8 +116,10 @@ def run_matching(args):
     # Spectrum Filtering
     ############################################################
     # outSuff = "230206_output_quasi5_20V_V9"
-
-    os.system(f'mkdir -p {args.outDir}')
+    mkdir_cmd = f"mkdir -p {args.outDir}"
+    print(mkdir_cmd)
+    sys.stdout.flush()
+    os.system(f'{mkdir_cmd}')
     with open(os.path.join(args.outDir, 'argsFiltering.txt'), 'w') as f:
         print(vars(args), file = f)
 
