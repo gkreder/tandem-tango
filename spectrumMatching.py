@@ -117,8 +117,6 @@ def run_matching(args):
     ############################################################
     # outSuff = "230206_output_quasi5_20V_V9"
     mkdir_cmd = f"mkdir -p {args.outDir}"
-    print(mkdir_cmd)
-    sys.stdout.flush()
     os.system(f'{mkdir_cmd}')
     with open(os.path.join(args.outDir, 'argsFiltering.txt'), 'w') as f:
         print(vars(args), file = f)
@@ -158,7 +156,8 @@ def run_matching(args):
 
     grayData = []
     for i_d, d in enumerate(data):
-        print(f"---- Prepping Spectrum {i_d + 1} ----")
+        if not args.silent:
+            print(f"---- Prepping Spectrum {i_d + 1} ----")
         if args.gainControl:
             injTime = d['injection time']
             d['uncorrected intensities'] = d['intensities'].copy()
@@ -166,8 +165,8 @@ def run_matching(args):
         # --------------------------------------------
         # Basic spectrum clean-up and filtering
         # --------------------------------------------
-        
-        print("Filtering peaks....")
+        if not args.silent:
+            print("Filtering peaks....")
         # Absolute intensity cutoff
         indices = np.where(d['intensities'] >= args.absCutoff)
         d['intensities'] = d['intensities'][indices]
@@ -599,6 +598,7 @@ def run_matching(args):
         ax.set_ylim((-ylimMax, ylimMax))
         plt.savefig(plotFilePair, bbox_inches = 'tight') 
         plt.close()
+    return(dfStats)
 
         
 
@@ -658,6 +658,7 @@ def get_args(arg_string = None):
     parser.add_argument("--outPrefix", default = None)
     parser.add_argument("--parentMZ", required = True, type = float)
     parser.add_argument("--parentFormula", default = None)
+    parser.add_argument("--silent", action = "store_true")
 
 
     if arg_string == None:
