@@ -65,7 +65,10 @@ for i_line, line in enumerate(tqdm(lines)):
         spec_matching_args_dict['startingIndex'] = 0
         spec_matching_args = " ".join([f"--{k} {v}" for (k, v) in spec_matching_args_dict.items()])
         spec_matching_args += " --silent"
-        spec_matching_args = spectrumMatching.get_args(spec_matching_args)
+        try:
+            spec_matching_args = spectrumMatching.get_args(spec_matching_args)
+        except: 
+            sys.exit(f'Failed at iMeta = {iMeta} jMeta = {jMeta}')
         dfStats = spectrumMatching.run_matching(spec_matching_args)
         out_row = []
         out_row.append(iPair)
