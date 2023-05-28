@@ -48,7 +48,7 @@ for i_line, line in enumerate(tqdm(lines)):
         if i >= len(choices):
             break
     out_rows = []
-    pref = f"{cmd_args_dict['Compound']}_{cmd_args_dict['Collision Energy']}_{cmd_args_dict['Mode']}"
+    pref = cmd_args_dict['outPrefix']
     for iPair, (iSpec, jSpec) in enumerate(tqdm(pairs)):
         iMeta = hit_rows[iSpec]
         jMeta = hit_rows[jSpec]
@@ -57,7 +57,7 @@ for i_line, line in enumerate(tqdm(lines)):
                     "Exact m/z", "Targeted m/z", "isolationMZTol"]
         spec_matching_args_dict = {k : v for (k,v) in cmd_args_dict.items() if k not in drop_keys}
         spec_matching_args_dict['outDir'] = os.path.join(cmd_args_dict['outDir'], f"{pref}_matching")
-        spec_matching_args_dict['outPrefix'] = f"{cmd_args_dict['Compound']}_{cmd_args_dict['Mode']}_{cmd_args_dict['Collision Energy']}_{iPair}"
+        spec_matching_args_dict['outPrefix'] = f"{pref}_{iPair}"
         spec_matching_args_dict['mzml1'] = iMeta[0]
         spec_matching_args_dict['mzml2'] = jMeta[0]
         spec_matching_args_dict['index1'] = iMeta[2]
@@ -65,11 +65,15 @@ for i_line, line in enumerate(tqdm(lines)):
         spec_matching_args_dict['startingIndex'] = 0
         spec_matching_args = " ".join([f"--{k} {v}" for (k, v) in spec_matching_args_dict.items()])
         spec_matching_args += " --silent"
+        spec_matching_args = spectrumMatching.get_args(spec_matching_args)
         try:
-            spec_matching_args = spectrumMatching.get_args(spec_matching_args)
+            dfStats = spectrumMatching.run_matching(spec_matching_args)
         except: 
-            sys.exit(f'Failed at iMeta = {iMeta} jMeta = {jMeta}')
-        dfStats = spectrumMatching.run_matching(spec_matching_args)
+            print(f'Failed at iMeta = {iMeta} jMeta = {jMeta}')
+            sys.stdout.flush()
+            continue
+        if dfStats is None:
+            continue
         out_row = []
         out_row.append(iPair)
         out_row.append(spec_matching_args_dict['mzml1'])
