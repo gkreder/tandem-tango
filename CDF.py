@@ -65,6 +65,8 @@ for i_line, line in enumerate(tqdm(lines)):
         spec_matching_args_dict['startingIndex'] = 0
         spec_matching_args = " ".join([f"--{k} {v}" for (k, v) in spec_matching_args_dict.items()])
         spec_matching_args += " --silent"
+        spec_matching_args += " --intersection_only"
+        spec_matching_args += " --no_log_plots"
         spec_matching_args = spectrumMatching.get_args(spec_matching_args)
         try:
             dfStats = spectrumMatching.run_matching(spec_matching_args)
@@ -89,7 +91,7 @@ for i_line, line in enumerate(tqdm(lines)):
         out_row.append(dfStats['Intersection']['pval_G^2'])
         out_rows.append(out_row)
         
-    header = ["pair_index", 'mzML File 1','File 1 spectrum index (A)','File 2 spectrum index (B)','File 2 spectrum index (B)','M','S_A','S_B','D^2',
+    header = ["pair_index", 'mzML File 1','File 1 spectrum index (A)','mzML File 2','File 2 spectrum index (B)','M','S_A','S_B','D^2',
     'p-val (D^2)','G^2','p-val (G^2)']
     dfOut = pd.DataFrame(out_rows, columns = header)
     dfOut.at[0, '# of spectrum pairs compared'] = len(dfOut)

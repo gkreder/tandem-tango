@@ -19,6 +19,8 @@ import os
 import numpy as np
 # import pyopenms as pyms
 import warnings
+from pyteomics import mzml as pytmzml
+import xml.etree.ElementTree as ET
 ############################################################
 import formulaUtils
 import plotUtils
@@ -26,34 +28,93 @@ import plotUtils
 
 quasiCutoffDefault = 5
 
-
-
 def scrape_spectra_hits(**kwargs):
+    # The mzML namespace
+    ns = {'mzml': 'http://psi.hupo.org/ms/mzml'}
     inFiles = kwargs['inFiles'].split(",")
     hit_rows = []
+    bRT = float(kwargs['Begin'])
+    eRT = float(kwargs['End'])
+    target_isolation_window_mz = float(kwargs['Targeted m/z'])
+    isolation_tol = float(kwargs['isolationMZTol'])
     for inFile in tqdm(inFiles):
         if inFile.startswith('"'):
             inFile = inFile[1 : ]
         if inFile.endswith('"'):
             inFile = inFile[ : -1]
-        mse = pyms.MSExperiment()
-        mzmlFile = pyms.MzMLFile()
-        options =mzmlFile.getOptions()
-        # options.setMetadataOnly(True)
-        mzmlFile.setOptions(options)
-        mzmlFile.load(inFile, mse)
-        for iSpec, spec in enumerate(mse.getSpectra()):
-            if spec.getMSLevel() != 2:
-                continue
-            targetIsolationMZ = spec.getPrecursors()[0].getMZ()
-            diff = abs(float(kwargs['Targeted m/z']) - targetIsolationMZ)
-            if diff <= float(kwargs['isolationMZTol']):
-                bRT = float(kwargs['Begin']) * 60
-                eRT = float(kwargs['End']) * 60
-                if spec.getRT() >= bRT and spec.getRT() <= eRT:
-                    # commentText = f"sourceFile,nativeID,specIndex_mzML,specRT_sec={os.path.basename(inFile)},{spec.getNativeID()},{iSpec},{spec.getRT()}"
-                    hit_rows.append((inFile,spec.getNativeID(),iSpec,spec.getRT()))
+        tree = ET.parse(inFile)
+        root = tree.getroot()
+        for spectrum in root.findall('.//mzml:spectrum', ns):
+            # scan_start_time = None
+            isolation_window_mz = None
+            # Look for a cvParam with accession
+            for cvParam in spectrum.findall('.//mzml:cvParam', ns):
+                accession = cvParam.get('accession')
+                if accession == 'MS:1000511':  # MS level
+                    ms_level = cvParam.get('value')
+                elif accession == 'MS:1000016':  # Scan start time (minutes)
+                    scan_start_time = float(cvParam.get('value'))
+                elif accession == 'MS:1000827':  # Isolation window target m/z
+                    isolation_window_mz = float(cvParam.get('value'))
+            # Check if the conditions are met
+            if ms_level == "2" and (bRT <= scan_start_time <= eRT) and (abs(isolation_window_mz - target_isolation_window_mz) <= isolation_tol):
+                # Get the id attribute of the spectrum
+                spectrum_native_id = spectrum.get('id')
+                spectrum_index = spectrum.get("index")
+                hit_rows.append((inFile, spectrum_native_id, spectrum_index, scan_start_time))
     return(hit_rows)
+
+
+# def scrape_spectra_hits(**kwargs):
+#     inFiles = kwargs['inFiles'].split(",")
+#     hit_rows = []
+#     for inFile in tqdm(inFiles):
+#         if inFile.startswith('"'):
+#             inFile = inFile[1 : ]
+#         if inFile.endswith('"'):
+#             inFile = inFile[ : -1]
+#         with pytmzml.read(inFile) as reader:
+#             for iSpec, spec in enumerate(reader):
+#             # for iSpec, spec in enumerate(mse.getSpectra()):
+#                 if spec['ms level'] != 2:
+#                     continue
+#                 spec_target_mz = spec['precursorList']['precursor'][0]['isolationWindow']['isolation window target m/z']
+#                 diff = abs(float(kwargs['Targeted m/z']) - spec_target_mz)
+#                 if diff <= float(kwargs['isolationMZTol']):
+#                     bRT = float(kwargs['Begin'])
+#                     eRT = float(kwargs['End'])
+#                     spec_RT = float(spec['scanList']['scan'][0]['scan start time']) # Here expressed in minutes
+#                     if spec_RT >= bRT and spec_RT <= eRT:
+#                         spec_native_id = spec['id']
+#                         hit_rows.append((inFile, spec_native_id, iSpec, spec_RT))
+#     return(hit_rows)
+
+# def scrape_spectra_hits(**kwargs):
+#     inFiles = kwargs['inFiles'].split(",")
+#     hit_rows = []
+#     for inFile in tqdm(inFiles):
+#         if inFile.startswith('"'):
+#             inFile = inFile[1 : ]
+#         if inFile.endswith('"'):
+#             inFile = inFile[ : -1]
+#         mse = pyms.MSExperiment()
+#         mzmlFile = pyms.MzMLFile()
+#         options =mzmlFile.getOptions()
+#         # options.setMetadataOnly(True)
+#         mzmlFile.setOptions(options)
+#         mzmlFile.load(inFile, mse)
+#         for iSpec, spec in enumerate(mse.getSpectra()):
+#             if spec.getMSLevel() != 2:
+#                 continue
+#             targetIsolationMZ = spec.getPrecursors()[0].getMZ()
+#             diff = abs(float(kwargs['Targeted m/z']) - targetIsolationMZ)
+#             if diff <= float(kwargs['isolationMZTol']):
+#                 bRT = float(kwargs['Begin']) * 60
+#                 eRT = float(kwargs['End']) * 60
+#                 if spec.getRT() >= bRT and spec.getRT() <= eRT:
+#                     # commentText = f"sourceFile,nativeID,specIndex_mzML,specRT_sec={os.path.basename(inFile)},{spec.getNativeID()},{iSpec},{spec.getRT()}"
+#                     hit_rows.append((inFile,spec.getNativeID(),iSpec,spec.getRT()))
+#     return(hit_rows)
         
     
 
@@ -360,6 +421,8 @@ def run_matching(args):
         for join in stats.keys():
             if join == 'Union':
                 dfC = df.copy()
+                # if args.intersection_only:
+                    # continue
             elif join == 'Intersection':
                 dfC = df.dropna(subset = ['mz_A', 'mz_B']).copy()
             
@@ -526,6 +589,8 @@ def run_matching(args):
             dfPlot = df.dropna(subset = ['mz_A', 'mz_B'])
         elif plotJoin == 'Union':
             dfPlot = df.copy()
+            if args.intersection_only:
+                continue
         sideText = ""
         if args.parentFormula != None:
             sideText += f"Parent Formula : {args.parentFormula}"
@@ -572,32 +637,33 @@ def run_matching(args):
         plt.savefig(plotFilePair, bbox_inches = 'tight') 
         plt.close()
 
-        # Absolute quasicount scale 
-        # dfPlot = dfPlot.loc[lambda x : (x['quasi_A'] > 1) & (x['quasi_B'] > 1)]
-        gda, gdb = grayData
-        fig, ax = plotUtils.mirrorPlot(gda['mzs'], gdb['mzs'], np.log10(gda['quasi']), np.log10(gdb['quasi']), None, None, normalize = False, sideText = sideText, overrideColor = "gray")
-        plotUtils.mirrorPlot(dfPlot['mz_A'], dfPlot['mz_B'], np.log10(dfPlot['quasi_A']), 
-                                    np.log10(dfPlot['quasi_B']), None, None, 
-                                    normalize = False, sideText = sideText,
-                                    fig = fig, ax = ax)
-        ax.set_xlim([0, ax.get_xlim()[1]])
-        ylim = ax.get_ylim()
-        xlim = ax.get_xlim()
-        ylimMax = max([abs(x) for x in ylim])
-        ylimRange = ylim[1] - ylim[0]
-        # plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), 0, sideText)
-        plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), ylimMax - ( 0.050 * ylimRange ), f"{plotJoin}:", fontsize = 20)
-        plt.text(xlim[0] + ( ( xlim[1] - xlim[0] ) *  0.01 ), ylimMax - ( .03 * ylimRange ), "Spectrum A", fontsize = 15, fontfamily = 'DejaVu Sans')
-        plt.text(xlim[0] + ( ( xlim[1] - xlim[0] ) *  0.01 ), -ylimMax + ( .03 * ylimRange ), "Spectrum B", fontsize = 15, fontfamily = 'DejaVu Sans')
-        plotFilePair = os.path.join(args.outDir, f"{baseOutFileName}_{plotJoin}_quasicount_log_plot.svg")
-        # plotFilePair = outFilePair.replace('.xlsx', f'_{plotJoin}_quasi.pdf')
-        # plt.title(os.path.basename(plotFilePair).replace('.pdf', ''))
-        plot_title = f"{suf1} Scan {ind1} (A) vs.\n {suf2} Scan {ind2} (B) [{plotJoin}]"
-        plt.title(f"{plot_title}")
-        plt.ylabel("Log10 absolute intensity (quasicounts)")
-        ax.set_ylim((-ylimMax, ylimMax))
-        plt.savefig(plotFilePair, bbox_inches = 'tight') 
-        plt.close()
+        if not args.no_log_plots:
+            # Absolute quasicount scale 
+            # dfPlot = dfPlot.loc[lambda x : (x['quasi_A'] > 1) & (x['quasi_B'] > 1)]
+            gda, gdb = grayData
+            fig, ax = plotUtils.mirrorPlot(gda['mzs'], gdb['mzs'], np.log10(gda['quasi']), np.log10(gdb['quasi']), None, None, normalize = False, sideText = sideText, overrideColor = "gray")
+            plotUtils.mirrorPlot(dfPlot['mz_A'], dfPlot['mz_B'], np.log10(dfPlot['quasi_A']), 
+                                        np.log10(dfPlot['quasi_B']), None, None, 
+                                        normalize = False, sideText = sideText,
+                                        fig = fig, ax = ax)
+            ax.set_xlim([0, ax.get_xlim()[1]])
+            ylim = ax.get_ylim()
+            xlim = ax.get_xlim()
+            ylimMax = max([abs(x) for x in ylim])
+            ylimRange = ylim[1] - ylim[0]
+            # plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), 0, sideText)
+            plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), ylimMax - ( 0.050 * ylimRange ), f"{plotJoin}:", fontsize = 20)
+            plt.text(xlim[0] + ( ( xlim[1] - xlim[0] ) *  0.01 ), ylimMax - ( .03 * ylimRange ), "Spectrum A", fontsize = 15, fontfamily = 'DejaVu Sans')
+            plt.text(xlim[0] + ( ( xlim[1] - xlim[0] ) *  0.01 ), -ylimMax + ( .03 * ylimRange ), "Spectrum B", fontsize = 15, fontfamily = 'DejaVu Sans')
+            plotFilePair = os.path.join(args.outDir, f"{baseOutFileName}_{plotJoin}_quasicount_log_plot.svg")
+            # plotFilePair = outFilePair.replace('.xlsx', f'_{plotJoin}_quasi.pdf')
+            # plt.title(os.path.basename(plotFilePair).replace('.pdf', ''))
+            plot_title = f"{suf1} Scan {ind1} (A) vs.\n {suf2} Scan {ind2} (B) [{plotJoin}]"
+            plt.title(f"{plot_title}")
+            plt.ylabel("Log10 absolute intensity (quasicounts)")
+            ax.set_ylim((-ylimMax, ylimMax))
+            plt.savefig(plotFilePair, bbox_inches = 'tight') 
+            plt.close()
     return(dfStats)
 
         
@@ -659,6 +725,8 @@ def get_args(arg_string = None):
     parser.add_argument("--parentMZ", required = True, type = float)
     parser.add_argument("--parentFormula", default = None)
     parser.add_argument("--silent", action = "store_true")
+    parser.add_argument("--no_log_plots", action = "store_true")
+    parser.add_argument("--intersection_only", action = "store_true")
 
 
     if arg_string == None:
