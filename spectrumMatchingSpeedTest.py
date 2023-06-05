@@ -20,7 +20,7 @@ import warnings
 from pyteomics import mzml as pytmzml
 import xml.etree.ElementTree as ET
 ############################################################
-import formulaUtilsSpeedTest as formulaUtils
+import formulaUtils
 import plotUtils
 ############################################################
 
@@ -275,7 +275,6 @@ def run_matching(args):
                     print(f"There were too few peaks ({len(d['quasi'])}) compared to the required minimum ({args.minTotalPeaks})", file = f)
             return
             # sys.exit('gkreder - I put this in here to stop empty spectra. Refer to 2022-11-25_comparisonSpcetrumFiltering.ipynb')
-
 
 
     ############################################################

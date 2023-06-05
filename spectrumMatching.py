@@ -2,7 +2,6 @@
 import sys
 import os
 import numpy as np
-import pyopenms as pyms
 from tqdm.auto import tqdm
 import molmass
 import pandas as pd
@@ -17,7 +16,6 @@ import pickle as pkl
 import sys
 import os
 import numpy as np
-# import pyopenms as pyms
 import warnings
 from pyteomics import mzml as pytmzml
 import xml.etree.ElementTree as ET
@@ -63,59 +61,6 @@ def scrape_spectra_hits(**kwargs):
                 spectrum_index = spectrum.get("index")
                 hit_rows.append((inFile, spectrum_native_id, spectrum_index, scan_start_time))
     return(hit_rows)
-
-
-# def scrape_spectra_hits(**kwargs):
-#     inFiles = kwargs['inFiles'].split(",")
-#     hit_rows = []
-#     for inFile in tqdm(inFiles):
-#         if inFile.startswith('"'):
-#             inFile = inFile[1 : ]
-#         if inFile.endswith('"'):
-#             inFile = inFile[ : -1]
-#         with pytmzml.read(inFile) as reader:
-#             for iSpec, spec in enumerate(reader):
-#             # for iSpec, spec in enumerate(mse.getSpectra()):
-#                 if spec['ms level'] != 2:
-#                     continue
-#                 spec_target_mz = spec['precursorList']['precursor'][0]['isolationWindow']['isolation window target m/z']
-#                 diff = abs(float(kwargs['Targeted m/z']) - spec_target_mz)
-#                 if diff <= float(kwargs['isolationMZTol']):
-#                     bRT = float(kwargs['Begin'])
-#                     eRT = float(kwargs['End'])
-#                     spec_RT = float(spec['scanList']['scan'][0]['scan start time']) # Here expressed in minutes
-#                     if spec_RT >= bRT and spec_RT <= eRT:
-#                         spec_native_id = spec['id']
-#                         hit_rows.append((inFile, spec_native_id, iSpec, spec_RT))
-#     return(hit_rows)
-
-# def scrape_spectra_hits(**kwargs):
-#     inFiles = kwargs['inFiles'].split(",")
-#     hit_rows = []
-#     for inFile in tqdm(inFiles):
-#         if inFile.startswith('"'):
-#             inFile = inFile[1 : ]
-#         if inFile.endswith('"'):
-#             inFile = inFile[ : -1]
-#         mse = pyms.MSExperiment()
-#         mzmlFile = pyms.MzMLFile()
-#         options =mzmlFile.getOptions()
-#         # options.setMetadataOnly(True)
-#         mzmlFile.setOptions(options)
-#         mzmlFile.load(inFile, mse)
-#         for iSpec, spec in enumerate(mse.getSpectra()):
-#             if spec.getMSLevel() != 2:
-#                 continue
-#             targetIsolationMZ = spec.getPrecursors()[0].getMZ()
-#             diff = abs(float(kwargs['Targeted m/z']) - targetIsolationMZ)
-#             if diff <= float(kwargs['isolationMZTol']):
-#                 bRT = float(kwargs['Begin']) * 60
-#                 eRT = float(kwargs['End']) * 60
-#                 if spec.getRT() >= bRT and spec.getRT() <= eRT:
-#                     # commentText = f"sourceFile,nativeID,specIndex_mzML,specRT_sec={os.path.basename(inFile)},{spec.getNativeID()},{iSpec},{spec.getRT()}"
-#                     hit_rows.append((inFile,spec.getNativeID(),iSpec,spec.getRT()))
-#     return(hit_rows)
-        
     
 
 def run_matching(args):
@@ -179,25 +124,30 @@ def run_matching(args):
     # outSuff = "230206_output_quasi5_20V_V9"
     mkdir_cmd = f"mkdir -p {args.outDir}"
     os.system(f'{mkdir_cmd}')
+    os.chmod(args.outDir, 0o777)
     with open(os.path.join(args.outDir, 'argsFiltering.txt'), 'w') as f:
         print(vars(args), file = f)
 
 
     data = ({}, {})
     for i_d, d in enumerate(data):
-        ode = pyms.OnDiscMSExperiment()
-        ode.openFile([args.mzml1, args.mzml2][i_d])
-        d['ode'] = ode
-        spec = ode.getSpectrum([args.index1, args.index2][i_d])
+        reader = pytmzml.MzML([args.mzml1, args.mzml2][i_d])
+        spec = reader.get_by_index([args.index1, args.index2][i_d])
+        reader.close()
         d['spec'] = spec
-        polarity = spec.getInstrumentSettings().getPolarity()
+        if 'negative scan' in spec.keys():
+            polarity = 'Negative'
+        elif 'positive scan' in spec.keys():
+            polarity = 'Positive'
         d['polarity'] = polarity
         if args.gainControl:
+            sys.exit('Error - havent implemented Gain Control for pyteomics implementation')
             injTime = spec.getAcquisitionInfo()[0].getMetaValue('MS:1000927')
             if injTime == None:
                 sys.exit(f"Error - gain control set to True but spectrum {i_d + 1} has no injection time in its header")
             d['injection time'] = injTime
-        mzs, ints = spec.get_peaks()
+        mzs = spec['m/z array']
+        ints = spec['intensity array']
         d['mzs'] = mzs
         d['intensities'] = ints
     dataBackup = [x.copy() for x in data]
@@ -205,20 +155,22 @@ def run_matching(args):
     # pyms.IonSource.Polarity.NEGATIVE
     if len(set([d['polarity'] for d in data])) != 1:
         sys.exit('Error - the spectra polarities must match')
-    polarity = {pyms.IonSource.Polarity.NEGATIVE : "Negative", pyms.IonSource.Polarity.POSITIVE : "Positive"}[set([d['polarity'] for d in data]).pop()]
+    # polarity = {pyms.IonSource.Polarity.NEGATIVE : "Negative", pyms.IonSource.Polarity.POSITIVE : "Positive"}[set([d['polarity'] for d in data]).pop()]
     # polarity = ['Negative', 'Positive'][set([d['polarity'] for d in data]).pop()]
 
-    if set([d['spec'].getMSLevel() for d in data]) != set([2]):
+    if set([d['spec']['ms level'] for d in data]) != set([2]):
         for i_d, d in enumerate(data):
-            if d['spec'].getMSLevel() != 2:
-                sys.exit(f'Error - spectrum {i_d + 1} has MS level {d["spec"].getMSLevel()}')
+            if d['spec']['ms level'] != 2:
+                sys.exit(f'Error - spectrum {i_d + 1} has MS level {d["spec"]["ms level"]}')
 
 
 
     grayData = []
     for i_d, d in enumerate(data):
         if not args.silent:
-            print(f"---- Prepping Spectrum {i_d + 1} ----")
+            mzmlName = [args.mzml1, args.mzml2][i_d]
+            indexName = [args.index1, args.index2][i_d]
+            print(f"---- Prepping Spectrum {i_d + 1} {mzmlName} {indexName} ----")
         if args.gainControl:
             injTime = d['injection time']
             d['uncorrected intensities'] = d['intensities'].copy()
@@ -326,7 +278,6 @@ def run_matching(args):
                     print(f"There were too few peaks ({len(d['quasi'])}) compared to the required minimum ({args.minTotalPeaks})", file = f)
             return
             # sys.exit('gkreder - I put this in here to stop empty spectra. Refer to 2022-11-25_comparisonSpcetrumFiltering.ipynb')
-
 
 
     ############################################################
@@ -581,7 +532,8 @@ def run_matching(args):
     for isuf, suf in enumerate(['A', 'B']):
         pd.DataFrame({f"m/z_{suf}" : dataBackup[isuf]['mzs'], f"I_{suf} (raw intensity)" : dataBackup[isuf]['intensities']}).to_excel(writer, sheet_name = f"Spectrum_{suf}_Raw", index = False) 
     # dfOut.to_excel(writer, sheet_name = "Spectra", index = False)
-    writer.save()
+    # writer.save()
+    writer.close()
 
 
     for plotJoin in ["Union", "Intersection"]:
