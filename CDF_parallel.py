@@ -109,38 +109,38 @@ def run_task(i_line, line):
     dfOut.at[0, '# of spectrum pairs compared'] = len(dfOut)
     outFile = os.path.join(cmd_args_dict['outDir'], f"{pref}.tsv")
     dfOut.to_csv(outFile, sep = '\t', index = False)
-    # plt.rcParams['font.family'] = 'DejaVu Sans'
-    # for pvalType in ['D^2', 'G^2']:
-    #     # plt.plot(dfOut['p-val (D^2)'])
-    #     data = dfOut[f'p-val ({pvalType})']
-    #     # scipy.stats.kstest(th, th)
-    #     res = scipy.stats.kstest(data, 'uniform')
-    #     kspval, ksstat = res.pvalue, res.statistic
-    #     x = np.sort(data)
-    #     y = 1. * np.arange(len(data)) / (len(data) - 1)
-    #     x_ones = np.linspace(0, 1, 6)
-    #     th = scipy.stats.uniform().cdf(x_ones)
-    #     # th = np.arange(0, 1.01, 0.01)
-    #     fig, ax = plt.subplots()
-    #     # plt.plot(x,y, color = "blue")
-    #     plt.step(x,y, color = "blue", linewidth = 0.5, where = 'post')
-    #     plt.plot(x_ones, th, color = "black", linewidth = 0.5)
-    #     title = f"{pref.replace('_', ' ')} {pvalType}"
-    #     plt.title(title)
-    #     ax.set_xlim((0, 1))
-    #     ax.set_ylim((0, 1))
-    #     pltText = f"N: {len(dfOut)}\nK-S statistic:{ksstat:.3f}\nK-S test p-value: {kspval:.2E}"
-    #     plt.figtext(0.92, 0.5, pltText, fontsize=14, ha = 'left', fontfamily = 'DejaVu Sans')
-    #     ax.set_aspect('equal')
-    #     # plotFile = os.path.basename(args.inFile).replace('.pkl', f'_{pvalType.replace("^", "")}.pdf')
-    #     plotFile = os.path.join(cmd_args_dict['outDir'], f"{pref}_{pvalType.replace('^', '')}.pdf")
-    #     plt.savefig(plotFile, bbox_inches = 'tight')
-    #     plt.close()
-    #     dfOut.at[0, f'K-S test {pvalType} p-val'] = kspval
-    # dfOut.insert(len(header), None, None)
-    # outFile = os.path.join(cmd_args_dict['outDir'], f"{pref}.tsv")
-    # dfOut.to_csv(outFile, sep = '\t', index = False)
-    # # plt.rcParams['font.family'] = 'default'
+    plt.rcParams['font.family'] = 'DejaVu Sans'
+    for pvalType in ['D^2', 'G^2']:
+        # plt.plot(dfOut['p-val (D^2)'])
+        data = dfOut[f'p-val ({pvalType})']
+        # scipy.stats.kstest(th, th)
+        res = scipy.stats.kstest(data, 'uniform')
+        kspval, ksstat = res.pvalue, res.statistic
+        x = np.sort(data)
+        y = 1. * np.arange(len(data)) / (len(data) - 1)
+        x_ones = np.linspace(0, 1, 6)
+        th = scipy.stats.uniform().cdf(x_ones)
+        # th = np.arange(0, 1.01, 0.01)
+        fig, ax = plt.subplots()
+        # plt.plot(x,y, color = "blue")
+        plt.step(x,y, color = "blue", linewidth = 0.5, where = 'post')
+        plt.plot(x_ones, th, color = "black", linewidth = 0.5)
+        title = f"{pref.replace('_', ' ')} {pvalType}"
+        plt.title(title)
+        ax.set_xlim((0, 1))
+        ax.set_ylim((0, 1))
+        pltText = f"N: {len(dfOut)}\nK-S statistic:{ksstat:.3f}\nK-S test p-value: {kspval:.2E}"
+        plt.figtext(0.92, 0.5, pltText, fontsize=14, ha = 'left', fontfamily = 'DejaVu Sans')
+        ax.set_aspect('equal')
+        # plotFile = os.path.basename(args.inFile).replace('.pkl', f'_{pvalType.replace("^", "")}.pdf')
+        plotFile = os.path.join(cmd_args_dict['outDir'], f"{pref}_{pvalType.replace('^', '')}.pdf")
+        plt.savefig(plotFile, bbox_inches = 'tight')
+        plt.close()
+        dfOut.at[0, f'K-S test {pvalType} p-val'] = kspval
+    dfOut.insert(len(header), None, None)
+    outFile = os.path.join(cmd_args_dict['outDir'], f"{pref}.tsv")
+    dfOut.to_csv(outFile, sep = '\t', index = False)
+    # plt.rcParams['font.family'] = 'default'
     return(0)
 
 
