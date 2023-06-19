@@ -148,9 +148,14 @@ def run_task(i_line, line):
     return(0)
 
 
-cluster = SLURMCluster(queue=args.queue, account=args.account, cores=args.cores, memory=args.memory,
-                       walltime = args.walltime, interface = args.interface,
-                       processes = 1)
+if args.log_directory is None:
+    cluster = SLURMCluster(queue=args.queue, account=args.account, cores=args.cores, memory=args.memory,
+                        walltime = args.walltime, interface = args.interface,
+                        processes = 1)
+else:
+    cluster = SLURMCluster(queue=args.queue, account=args.account, cores=args.cores, memory=args.memory,
+                        walltime = args.walltime, interface = args.interface,
+                        processes = 1, log_directory = args.log_directory)
 cluster.scale(args.num_workers)
 client = Client(cluster)
 results = [run_task(i_line, line) for i_line, line in enumerate(lines)]
