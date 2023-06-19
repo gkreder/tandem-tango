@@ -25,6 +25,10 @@ parser.add_argument('--memory', default = "16 GB", type = str)
 parser.add_argument('--walltime', default = "05:00:00", type = str)
 parser.add_argument('--interface', default = "ib0", type = str)
 parser.add_argument('--num_workers', default = 30, type = int)
+parser.add_argument('--log_directory', default = None)
+# "/cephyr/users/reder/Vera/dask_logs"
+parser.add_argument("--python", default = None)
+# "/cephyr/users/reder/Vera/.conda/envs/dask/bin/python"
 args = parser.parse_args()
 ############################################################
 
@@ -144,7 +148,11 @@ def run_task(i_line, line):
     return(0)
 
 
-cluster = SLURMCluster(queue=args.queue, account=args.account, cores=args.cores, memory=args.memory, walltime = args.walltime, interface = args.interface)
+cluster = SLURMCluster(queue=args.queue, account=args.account, cores=args.cores, memory=args.memory,
+                       walltime = args.walltime, interface = args.interface, 
+                       log_directory = args.log_directory,
+                       python = args.python,
+                       processes = 1)
 cluster.scale(args.num_workers)
 client = Client(cluster)
 results = [run_task(i_line, line) for i_line, line in enumerate(lines)]
