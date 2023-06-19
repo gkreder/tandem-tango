@@ -114,7 +114,7 @@ def run_task(i_line, line):
     outFile = os.path.join(cmd_args_dict['outDir'], f"{pref}.tsv")
     dfOut.to_csv(outFile, sep = '\t', index = False)
     plt.rcParams['font.family'] = 'DejaVu Sans'
-    if len(dfOut) == 0:
+    if len(out_rows) <= 1:
         return(1)
     for pvalType in ['D^2', 'G^2']:
         # plt.plot(dfOut['p-val (D^2)'])
