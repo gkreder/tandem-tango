@@ -149,7 +149,7 @@ def run_task(i_line, line):
 
 
 cluster = SLURMCluster(queue=args.queue, account=args.account, cores=args.cores, memory=args.memory,
-                       walltime = args.walltime, interface = args.interface
+                       walltime = args.walltime, interface = args.interface,
                        processes = 1)
 cluster.scale(args.num_workers)
 client = Client(cluster)
