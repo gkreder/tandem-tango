@@ -24,6 +24,7 @@ parser.add_argument('--cores', default = 4, type = int)
 parser.add_argument('--memory', default = "16 GB", type = str)
 parser.add_argument('--walltime', default = "05:00:00", type = str)
 parser.add_argument('--interface', default = "ib0", type = str)
+parser.add_argument('--num_workers', default = 30, type = int)
 args = parser.parse_args()
 ############################################################
 
@@ -139,3 +140,10 @@ def run_task(i_line, line):
     dfOut.to_csv(outFile, sep = '\t', index = False)
     # plt.rcParams['font.family'] = 'default'
     return(0)
+
+
+cluster = SLURMCluster(queue=args.queue, account=args.account, cores=args.cores, memory=args.memory, walltime = args.walltime, interface = args.interface)
+cluster.scale(args.num_workers)
+client = Client(cluster)
+results = [run_task(i_line, line) for i_line, line in enumerate(lines)]
+dask.compute(results)
