@@ -107,6 +107,8 @@ def run_task(i_line, line):
     'p-val (D^2)','G^2','p-val (G^2)']
     dfOut = pd.DataFrame(out_rows, columns = header)
     dfOut.at[0, '# of spectrum pairs compared'] = len(dfOut)
+    outFile = os.path.join(cmd_args_dict['outDir'], f"{pref}.tsv")
+    dfOut.to_csv(outFile, sep = '\t', index = False)
     plt.rcParams['font.family'] = 'DejaVu Sans'
     for pvalType in ['D^2', 'G^2']:
         # plt.plot(dfOut['p-val (D^2)'])
