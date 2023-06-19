@@ -10,10 +10,20 @@ import pandas as pd
 import scipy
 import matplotlib.pyplot as plt
 import seaborn as sns
+import dask
+from dask_jobqueue import SLURMCluster
+from dask import delayed
+from dask.distributed import Client
 ############################################################
 parser = argparse.ArgumentParser()
 parser.add_argument("--tsv", required = True)
 parser.add_argument("--random_seed", type = int, default = 1)
+parser.add_argument("--account", default = "C3SE2023-1-16", type = str)
+parser.add_argument("--queue", default = "vera", type = str)
+parser.add_argument('--cores', default = 4, type = int)
+parser.add_argument('--memory', default = "16 GB", type = str)
+parser.add_argument('--walltime', default = "05:00:00", type = str)
+parser.add_argument('--interface', default = "ib0", type = str)
 args = parser.parse_args()
 ############################################################
 
@@ -22,7 +32,8 @@ with open(args.tsv, 'r') as f:
 cmd_args_header = lines[0].split('\t')
 lines = lines[1 : ]
 
-for i_line, line in enumerate(tqdm(lines)):
+@dask.delayed
+def run_task(i_line, line):
     line_args = line.split('\t')
     cmd_args_dict = dict()
     for (h, a) in zip(cmd_args_header, line_args):
@@ -126,4 +137,5 @@ for i_line, line in enumerate(tqdm(lines)):
     dfOut.insert(len(header), None, None)
     outFile = os.path.join(cmd_args_dict['outDir'], f"{pref}.tsv")
     dfOut.to_csv(outFile, sep = '\t', index = False)
-    plt.rcParams['font.family'] = 'default'
+    # plt.rcParams['font.family'] = 'default'
+    return(0)
