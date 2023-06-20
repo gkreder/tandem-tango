@@ -162,7 +162,7 @@ if args.log_directory:
     kwargs['log_directory'] = args.log_directory
 
 cluster = SLURMCluster(**kwargs)
-cluster.adapt(minimum = 0, maximum = args.num_workers)
+cluster.adapt(minimum = 0, maximum = args.num_workers, target_duration = "4h")
 # cluster.scale(args.num_workers)
 # if args.log_directory is None:
 #     # cluster = SLURMCluster(queue=args.queue, account=args.account, cores=args.cores, memory=args.memory,
