@@ -150,15 +150,32 @@ def run_task(i_line, line):
     return(0)
 
 
-if args.log_directory is None:
-    cluster = SLURMCluster(queue=args.queue, account=args.account, cores=args.cores, memory=args.memory,
-                        walltime = args.walltime, interface = args.interface,
-                        processes = 1)
-else:
-    cluster = SLURMCluster(queue=args.queue, account=args.account, cores=args.cores, memory=args.memory,
-                        walltime = args.walltime, interface = args.interface,
-                        processes = 1, log_directory = args.log_directory)
-cluster.scale(args.num_workers)
+kwargs = {'queue' : args.queue,
+          'account' : args.account,
+          'cores' : args.cores,
+          'memory' : args.memory,
+          'walltime' : args.walltime,
+          'interface' : args.interface,
+          'processes' : 1,
+          'worker_extra_args' : ["--lifetime", "4 hour", "--lifetime-stagger", "10m"]}
+if args.logdirectory:
+    kwargs['log_directory'] = args.log_directory
+
+cluster = SLURMCluster(**kwargs)
+cluster.adapt(minimum = 0, maximum = args.num_workers)
+# cluster.scale(args.num_workers)
+# if args.log_directory is None:
+#     # cluster = SLURMCluster(queue=args.queue, account=args.account, cores=args.cores, memory=args.memory,
+#     #                     walltime = args.walltime, interface = args.interface,
+#     #                     processes = 1)
+#     cluster = SLURMCluster(queue=args.queue, account=args.account, cores=args.cores, memory=args.memory,
+#                         walltime = args.walltime, interface = args.interface,
+#                         processes = 1, worker_extra_args = ["--lifetime", "4 hour", "--lifetime-stagger", "10m"])
+# else:
+#     cluster = SLURMCluster(queue=args.queue, account=args.account, cores=args.cores, memory=args.memory,
+#                         walltime = args.walltime, interface = args.interface,
+#                         processes = 1, worker_extra_args = ["--lifetime", "4 hour", "--lifetime-stagger", "10m"], log_directory = args.log_directory)
+
 client = Client(cluster)
 results = [run_task(i_line, line) for i_line, line in enumerate(lines)]
 dask.compute(results)
