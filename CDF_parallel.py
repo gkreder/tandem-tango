@@ -158,7 +158,7 @@ kwargs = {'queue' : args.queue,
           'interface' : args.interface,
           'processes' : 1,
           'worker_extra_args' : ["--lifetime", "4 hour", "--lifetime-stagger", "10m"]}
-if args.logdirectory:
+if args.log_directory:
     kwargs['log_directory'] = args.log_directory
 
 cluster = SLURMCluster(**kwargs)
