@@ -24,7 +24,10 @@ parser.add_argument('--cores', default = 4, type = int)
 parser.add_argument('--memory', default = "16 GB", type = str)
 parser.add_argument('--walltime', default = "05:00:00", type = str)
 parser.add_argument('--interface', default = "ib0", type = str)
-parser.add_argument('--num_workers', default = 30, type = int)
+parser.add_argument('--lifetime', default = "4h", type = str)
+parser.add_argument('--lifetime_stagger', default = "10m", type = str)
+parser.add_argument('--min_workers', default = 4, type = int)
+parser.add_argument('--max_workers', default = 100, type = int)
 parser.add_argument('--log_directory', default = None)
 # "/cephyr/users/reder/Vera/dask_logs"
 parser.add_argument("--python", default = None)
@@ -157,12 +160,13 @@ kwargs = {'queue' : args.queue,
           'walltime' : args.walltime,
           'interface' : args.interface,
           'processes' : 1,
-          'worker_extra_args' : ["--lifetime", "4h", "--lifetime-stagger", "10m"]}
+          'worker_extra_args' : ["--lifetime", args.lifetime, "--lifetime-stagger", args.lifetime_stagger, "--lifetime-restart", True]}
 if args.log_directory:
     kwargs['log_directory'] = args.log_directory
 
 cluster = SLURMCluster(**kwargs)
-cluster.adapt(minimum = 4, maximum = args.num_workers, target_duration = "4h")
+# cluster.adapt(minimum = args.min_workers, maximum = args.max_workers, target_duration = "4h")
+cluster.adapt(minimum = args.min_workers, maximum = args.max_workers)
 # cluster.scale(args.num_workers)
 # if args.log_directory is None:
 #     # cluster = SLURMCluster(queue=args.queue, account=args.account, cores=args.cores, memory=args.memory,
