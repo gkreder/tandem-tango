@@ -160,7 +160,7 @@ kwargs = {'queue' : args.queue,
           'walltime' : args.walltime,
           'interface' : args.interface,
           'processes' : 1,
-          'worker_extra_args' : ["--lifetime", args.lifetime, "--lifetime-stagger", args.lifetime_stagger, "--lifetime-restart", "True"]}
+          'worker_extra_args' : ["--lifetime", args.lifetime, "--lifetime-stagger", args.lifetime_stagger, "--lifetime-restart True"]}
 if args.log_directory:
     kwargs['log_directory'] = args.log_directory
 
