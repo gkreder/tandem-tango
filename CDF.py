@@ -14,6 +14,8 @@ import seaborn as sns
 parser = argparse.ArgumentParser()
 parser.add_argument("--tsv", required = True)
 parser.add_argument("--random_seed", type = int, default = 1)
+parser.add_argument("--matching_results", action = 'store_true')
+parser.add_argument("--log_plots", action = 'store_true')
 args = parser.parse_args()
 ############################################################
 
@@ -66,7 +68,10 @@ for i_line, line in enumerate(tqdm(lines)):
         spec_matching_args = " ".join([f"--{k} {v}" for (k, v) in spec_matching_args_dict.items()])
         spec_matching_args += " --silent"
         spec_matching_args += " --intersection_only"
-        spec_matching_args += " --no_log_plots"
+        if not args.log_plots:
+            spec_matching_args += " --no_log_plots"
+        if not args.matching_results:
+            spec_matching_args += " --no_matching_results"
         spec_matching_args = spectrumMatching.get_args(spec_matching_args)
         try:
             dfStats = spectrumMatching.run_matching(spec_matching_args)
@@ -126,4 +131,7 @@ for i_line, line in enumerate(tqdm(lines)):
     dfOut.insert(len(header), None, None)
     outFile = os.path.join(cmd_args_dict['outDir'], f"{pref}.tsv")
     dfOut.to_csv(outFile, sep = '\t', index = False)
+    logFile = os.path.join(cmd_args_dict['outDir'], f"{pref}_args.txt")
+    with open(logFile, 'w') as flog:
+        print(spec_matching_args, file = flog)
     plt.rcParams['font.family'] = 'default'

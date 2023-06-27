@@ -523,8 +523,10 @@ def run_matching(args):
     # dfOut.drop(labels = [x for x in dfOut.columns if "_Intersection" in x], axis = 1).to_excel(writer, sheet_name = "Spectra_Union", index = False)
     # # dfOut.to_excel(writer, sheet_name = "Spectra", index = False)
     # writer.save()
+    if args.no_matching_results:
+        return(dfStats)
+    
     outExcelFile = os.path.join(args.outDir, f"{baseOutFileName}.xlsx")
-
     writer = pd.ExcelWriter(outExcelFile, engine = 'xlsxwriter')
     dfStats.drop(labels =['quasi_A', 'quasi_B'], axis = 0).rename(index = {'S_A' : 's_A (quasicounts)', 'S_B' : 's_B (quasicounts)'}).to_excel(writer, sheet_name = "Stats")
     dfOut.drop(labels = [x for x in dfOut.columns if "_Union" in x], axis = 1).dropna(subset = ['m/z_A', 'm/z_B']).to_excel(writer, sheet_name = "Spectra_Intersection", index = False)
@@ -678,6 +680,7 @@ def get_args(arg_string = None):
     parser.add_argument("--parentFormula", default = None)
     parser.add_argument("--silent", action = "store_true")
     parser.add_argument("--no_log_plots", action = "store_true")
+    parser.add_argument("--no_matching_results", action = "store_true")
     parser.add_argument("--intersection_only", action = "store_true")
 
 
