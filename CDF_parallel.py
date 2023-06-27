@@ -154,6 +154,9 @@ def run_task(i_line, line):
     dfOut.insert(len(header), None, None)
     outFile = os.path.join(cmd_args_dict['outDir'], f"{pref}.tsv")
     dfOut.to_csv(outFile, sep = '\t', index = False)
+    logFile = os.path.join(cmd_args_dict['outDir'], f"{pref}_args.txt")
+    with open(logFile, 'w') as flog:
+        print(spec_matching_args, file = flog)
     # plt.rcParams['font.family'] = 'default'
     return(0)
 
