@@ -29,6 +29,8 @@ parser.add_argument('--lifetime_stagger', default = "10m", type = str)
 parser.add_argument('--min_workers', default = 4, type = int)
 parser.add_argument('--max_workers', default = 100, type = int)
 parser.add_argument('--log_directory', default = None)
+parser.add_argument("--matching_results", action = 'store_true')
+parser.add_argument("--log_plots", action = 'store_true')
 # "/cephyr/users/reder/Vera/dask_logs"
 parser.add_argument("--python", default = None)
 # "/cephyr/users/reder/Vera/.conda/envs/dask/bin/python"
@@ -85,7 +87,10 @@ def run_task(i_line, line):
         spec_matching_args = " ".join([f"--{k} {v}" for (k, v) in spec_matching_args_dict.items()])
         spec_matching_args += " --silent"
         spec_matching_args += " --intersection_only"
-        spec_matching_args += " --no_log_plots"
+        if not args.log_plots:
+            spec_matching_args += " --no_log_plots"
+        if not args.matching_results:
+            spec_matching_args += " --no_matching_results"
         spec_matching_args = spectrumMatching.get_args(spec_matching_args)
         try:
             dfStats = spectrumMatching.run_matching(spec_matching_args)
