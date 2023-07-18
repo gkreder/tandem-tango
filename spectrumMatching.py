@@ -61,6 +61,41 @@ def scrape_spectra_hits(**kwargs):
                 spectrum_index = spectrum.get("index")
                 hit_rows.append((inFile, spectrum_native_id, spectrum_index, scan_start_time))
     return(hit_rows)
+
+def quasi_convert(d, **kwargs):
+    args = argparse.Namespace(**kwargs)
+    # Conversion to quasicounts by dividing the intensity by gamma_i(1 + delta)
+    d['quasi'] = d['intensity'] / ( args.quasiX *  ( np.power(d['mz'], args.quasiY) ) )
+    return(d)
+
+def filter_data(d, filter, **kwargs):
+    args = argparse.Namespace(**kwargs)
+    if filter == 'absolute':
+        out_d = d.loc[lambda x : x['intensity'] >= args.absCutoff]
+    elif filter == "pdpl":
+        diffSearch = np.min(np.abs(d['mz'][:, np.newaxis] - args.prePeaks), axis = 1)
+        indices = np.where(diffSearch <= args.matchAcc)
+        out_d = d.iloc[indices]
+    elif filter == 'quasi':
+        out_d = d.loc[lambda x : x['quasi'] >= args.quasiCutoff]
+    elif filter == 'parent_mz':
+        out_d = d.loc[lambda x : x['mz'] <= ( args.parentMZ + args.matchAcc )]
+    elif filter == 'match_acc':
+        out_d = d.copy()
+        # Eliminating all peaks within match accuracy of peak exclusion list peaks
+        for mze in args.excludePeaks:
+            out_d = out_d.loc[lambda x : np.abs(x['mz'] - mze) > args.matchAcc]
+    elif filter == 'relative':
+        indices = np.where((d['intensity'] / max(d['intensity'])) >= args.relCutoff)
+        out_d = d.iloc[indices]
+    elif filter == 'res_clearance':
+        mzs = d['mz'].copy().values
+        out_d = d.copy()
+        for mz in mzs:
+            if mz not in out_d['mz'].values:
+                continue
+            out_d = out_d.loc[lambda x : np.abs(x['mz'] - mz) > args.resClearance]    
+    return(out_d)
     
 
 def run_matching(args):
@@ -93,6 +128,7 @@ def run_matching(args):
     if args.PEL != None:
         with open(args.PEL, 'r') as f:
             excludePeaks = [float(x.strip()) for x in f.readlines()]
+        args.excludePeaks = excludePeaks
 
     if args.PDPL != None:
         with open(args.PDPL, 'r') as f:
@@ -102,7 +138,7 @@ def run_matching(args):
             badDiffs = np.where(pDiffs <= args.resClearance)[0]
             if len(badDiffs) > 0:
                 sys.exit(f"\nError - Some Predefined peak list m/z values are spaced too closely for given resolution width e.g. {prePeaks[badDiffs[0]]} and {prePeaks[badDiffs[0] + 1]}\n")
-
+        args.prePeaks = prePeaks
 
 
     suf1 = os.path.splitext(os.path.basename(os.path.basename(args.mzml1)))[0]
@@ -148,8 +184,8 @@ def run_matching(args):
             d['injection time'] = injTime
         mzs = spec['m/z array']
         ints = spec['intensity array']
-        d['mzs'] = mzs
-        d['intensities'] = ints
+        d['mz'] = mzs
+        d['intensity'] = ints
     dataBackup = [x.copy() for x in data]
         
     # pyms.IonSource.Polarity.NEGATIVE
@@ -163,8 +199,8 @@ def run_matching(args):
             if d['spec']['ms level'] != 2:
                 sys.exit(f'Error - spectrum {i_d + 1} has MS level {d["spec"]["ms level"]}')
 
-
-
+    #######################################################
+    #######################################################
     grayData = []
     for i_d, d in enumerate(data):
         if not args.silent:
@@ -173,99 +209,36 @@ def run_matching(args):
             print(f"---- Prepping Spectrum {i_d + 1} {mzmlName} {indexName} ----")
         if args.gainControl:
             injTime = d['injection time']
-            d['uncorrected intensities'] = d['intensities'].copy()
-            d['intensities'] = d['intensities'] * injTime
+            d['uncorrected intensity'] = d['intensity'].copy()
+            d['intensity'] = d['intensity'] * injTime
         # --------------------------------------------
         # Basic spectrum clean-up and filtering
         # --------------------------------------------
         if not args.silent:
             print("Filtering peaks....")
+        d = pd.DataFrame(d)
         # Absolute intensity cutoff
-        indices = np.where(d['intensities'] >= args.absCutoff)
-        d['intensities'] = d['intensities'][indices]
-        d['mzs'] = d['mzs'][indices]
-
-        # Conversion to quasicounts by dividing the intensity by gamma_i(1 + delta)
-        d['quasi'] = d['intensities'] / ( args.quasiX *  ( np.power(d['mzs'], args.quasiY) ) )
+        d = filter_data(d, 'absolute', **vars(args))
+        # Quasicount conversion
+        d = quasi_convert(d, **vars(args))
         grayData.append(d.copy())
-
         if args.PDPL != None: # Step 11 of the word template
             # Eliminating all peaks not within match accuracy of a peak in the pre-defined peak list
-            diffSearch = np.min(np.abs(d['mzs'][:, np.newaxis] - prePeaks), axis = 1)
-            indices = np.where(diffSearch <= args.matchAcc)
-            d['mzs'] = d['mzs'][indices]
-            d['intensities'] = d['intensities'][indices]
-            d['quasi'] = d['quasi'][indices]
-        
-        if len(d['quasi']) != 0:
-            # Eliminating peaks with quasicount < quasicount intensity cutoff
-            indices = np.where(d['quasi'] >= args.quasiCutoff)
-            d['intensities'] = d['intensities'][indices]
-            d['mzs'] = d['mzs'][indices]
-            d['quasi'] = d['quasi'][indices]
-
-        if len(d['quasi']) != 0:
-            # Eliminating peaks with m/z > parent peak m/z
-            indices = np.where(d['mzs'] <= args.parentMZ + args.matchAcc)
-            d['mzs'] = d['mzs'][indices]
-            d['intensities'] = d['intensities'][indices]
-            d['quasi'] = d['quasi'][indices]
-            
-            # For plotting purposes
-            grayIndices = np.where(grayData[i_d]['mzs'] <= args.parentMZ + args.matchAcc)
-            grayData[i_d]['mzs'] = grayData[i_d]['mzs'][grayIndices]
-            grayData[i_d]['intensities'] = grayData[i_d]['intensities'][grayIndices]
-            grayData[i_d]['quasi'] = grayData[i_d]['quasi'][grayIndices]
-
-        
-        if len(d['quasi']) != 0 and args.PEL != None and args.PDPL == None:
-            # Eliminating all peaks within match accuracy of peak exclusion list peaks
-            for mze in excludePeaks:
-                indices = np.where(np.abs(d['mzs'] - mze) > args.matchAcc)
-                d['mzs'] = d['mzs'][indices]
-                d['intensities'] = d['intensities'][indices]
-                d['quasi'] = d['quasi'][indices]
-        
-        if len(d['quasi']) != 0:
-            # Eliminate all peaks with normalized intensity < relative intensity cutoff
-            indices = np.where((d['intensities'] / max(d['intensities'])) >= args.relCutoff)
-            d['intensities'] = d['intensities'][indices]
-            d['mzs'] = d['mzs'][indices]
-            d['quasi'] = d['quasi'][indices]
-
-        if len(d['quasi']) != 0:
-            # Sort remaining peaks in spectrum from most to least intense
-            sOrder = np.argsort(d['intensities'])[::-1]
-            d['intensities'] = d['intensities'][sOrder]
-            d['mzs'] = d['mzs'][sOrder]
-            d['quasi'] = d['quasi'][sOrder]
-
-        if len(d['quasi']) != 0:
-            # print("Resolution clearance....")
-            # For each peak (from most intense to least), eliminate any peaks within the closed interval [m/z +- resolution clearance]
-            newInts = []
-            newMzs = []
-            newQuasis = []
-            ints = np.array(d['intensities'].copy())
-            mzs = np.array(d['mzs'].copy())
-            quasis = np.array(d['quasi'].copy())
-            i = 0
-            while len(ints) > 0:
-                i += 1
-                mz = mzs[0]
-                intensity = ints[0]
-                quasi = quasis[0]
-                keepIndices = np.where(np.abs(mzs - mz) > args.resClearance)
-                newInts = newInts + [intensity] # + list(ints[keepIndices])
-                newMzs = newMzs + [mz]  #+ list(mzs[keepIndices])
-                newQuasis = newQuasis + [quasi]
-                ints = ints[keepIndices]
-                mzs = mzs[keepIndices]
-                quasis = quasis[keepIndices]
-            d['intensities'] = np.array(newInts)
-            d['mzs'] = np.array(newMzs)
-            d['quasi'] = np.array(newQuasis)
-        
+            d = filter_data(d, 'pdpl', **vars(args))
+        # Eliminating peaks with quasicount < quasicount intensity cutoff
+        d = filter_data(d, 'quasi', **vars(args)) 
+        # Eliminating peaks with m/z > parent peak m/z
+        d = filter_data(d, 'parent_mz', **vars(args))
+        grayData[i_d] = filter_data(grayData[i_d], 'parent_mz', **vars(args)) # For plotting purposes
+        # Eliminating all peaks within match accuracy of peak exclusion list peaks
+        if args.PEL != None and args.PDPL == None:
+            d = filter_data(d, 'match_acc', **vars(args))
+        # Eliminate all peaks with normalized intensity < relative intensity cutoff
+        d = filter_data(d, 'relative', **vars(args))
+        # Sort remaining peaks in spectrum from most to least intense
+        d = d.sort_values(by = 'intensity', ascending = False)
+        # For each peak (from most intense to least), eliminate any peaks within the closed interval [m/z +- resolution clearance]
+        d = filter_data(d, 'res_clearance', **vars(args))
         # Note - these filters were originally intended for the CDF plots
         if not (len(d['quasi']) > 0 and d['quasi'].sum() >= args.minSpectrumQuasiCounts and len(d['quasi']) >= args.minTotalPeaks):
             errorFile = os.path.join(args.outDir, f"{baseOutFileName}.log")
@@ -277,8 +250,15 @@ def run_matching(args):
                 if len(d['quasi']) < args.minTotalPeaks:
                     print(f"There were too few peaks ({len(d['quasi'])}) compared to the required minimum ({args.minTotalPeaks})", file = f)
             return
-            # sys.exit('gkreder - I put this in here to stop empty spectra. Refer to 2022-11-25_comparisonSpcetrumFiltering.ipynb')
-
+        data[i_d] = d.copy().reset_index(drop = True)
+        grayData[i_d] = grayData[i_d].copy().reset_index(drop = True)
+        # sys.exit('gkreder - I put this in here to stop empty spectra. Refer to 2022-11-25_comparisonSpcetrumFiltering.ipynb')
+    dfs = []
+    for df in data:
+        df = df.sort_values(by = 'mz').reset_index(drop = True)
+        df['mz_join'] = df['mz']
+        dfs.append(df)
+        
 
     ############################################################
     # P-Value Calculation
@@ -309,20 +289,6 @@ def run_matching(args):
         SR_bi = num / denom
 
         return((SR_ai, SR_bi))
-
-
-
-    dfs = []
-    for d in data:
-        df = pd.DataFrame({"mz" : d['mzs'], "intensity" : d['intensities'], 'quasi' : d['quasi']}) 
-        # if args.parentFormula != None:
-        #     df['formula'] = d['formulas']
-        #     df['m/z_calculated'] = d['formulaMasses']
-        df = df.sort_values(by = 'mz').reset_index(drop = True)
-        df['mz_join'] = df['mz']
-        # if args.parentFormula != None:
-            # df = df = df.dropna(subset = [f'formula'])
-        dfs.append(df)
 
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
@@ -532,7 +498,7 @@ def run_matching(args):
     dfOut.drop(labels = [x for x in dfOut.columns if "_Union" in x], axis = 1).dropna(subset = ['m/z_A', 'm/z_B']).to_excel(writer, sheet_name = "Spectra_Intersection", index = False)
     dfOut.drop(labels = [x for x in dfOut.columns if "_Intersection" in x], axis = 1).to_excel(writer, sheet_name = "Spectra_Union", index = False)
     for isuf, suf in enumerate(['A', 'B']):
-        pd.DataFrame({f"m/z_{suf}" : dataBackup[isuf]['mzs'], f"I_{suf} (raw intensity)" : dataBackup[isuf]['intensities']}).to_excel(writer, sheet_name = f"Spectrum_{suf}_Raw", index = False) 
+        pd.DataFrame({f"m/z_{suf}" : dataBackup[isuf]['mz'], f"I_{suf} (raw intensity)" : dataBackup[isuf]['intensity']}).to_excel(writer, sheet_name = f"Spectrum_{suf}_Raw", index = False) 
     # dfOut.to_excel(writer, sheet_name = "Spectra", index = False)
     # writer.save()
     writer.close()
@@ -595,7 +561,7 @@ def run_matching(args):
             # Absolute quasicount scale 
             # dfPlot = dfPlot.loc[lambda x : (x['quasi_A'] > 1) & (x['quasi_B'] > 1)]
             gda, gdb = grayData
-            fig, ax = plotUtils.mirrorPlot(gda['mzs'], gdb['mzs'], np.log10(gda['quasi']), np.log10(gdb['quasi']), None, None, normalize = False, sideText = sideText, overrideColor = "gray")
+            fig, ax = plotUtils.mirrorPlot(gda['mz'], gdb['mz'], np.log10(gda['quasi']), np.log10(gdb['quasi']), None, None, normalize = False, sideText = sideText, overrideColor = "gray")
             plotUtils.mirrorPlot(dfPlot['mz_A'], dfPlot['mz_B'], np.log10(dfPlot['quasi_A']), 
                                         np.log10(dfPlot['quasi_B']), None, None, 
                                         normalize = False, sideText = sideText,
