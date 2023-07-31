@@ -249,7 +249,12 @@ def findBestForms(mass, allForms, toleranceDa = 0.005, charge = 0, verbose = Fal
         if len(outputFiltered) == 0:
             outputFiltered = [(None, None, None)]
         output = outputFiltered
-        output = ([x[0] for x in output], [x[1] for x in output], [x[2] for x in output])
+    bestForms = [x[0] for x in output]
+    thMasses = [x[1] for x in output]
+    errors = [x[2] for x in output]
+    if charge != 0:
+        thMasses = [chargedMass(m, charge) if m else None for m in thMasses]
+    output = (bestForms, thMasses, errors)
     return(output)
 
 

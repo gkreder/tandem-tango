@@ -96,7 +96,10 @@ def filter_data(d, filter, **kwargs):
                 continue
             out_d = out_d.loc[lambda x : np.abs(x['mz'] - mz) > args.resClearance]    
     return(out_d)
-    
+
+def H(x):
+    h = -1 * np.sum( x * ( np.log(x) ) )
+    return(h)
 
 def run_matching(args):
 
@@ -380,10 +383,6 @@ def run_matching(args):
             p_Ai = a_i / dfC['quasi_A'].sum()
             p_Bi = b_i / dfC['quasi_B'].sum()
             
-
-            def H(x):
-                h = -1 * np.sum( x * ( np.log(x) ) )
-                return(h)
 
             # Calculate the Spectrum Entropy and perplexity
             H_pA = H(p_Ai)
