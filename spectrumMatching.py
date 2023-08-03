@@ -65,6 +65,7 @@ def scrape_spectra_hits(**kwargs):
 def quasi_convert(d, **kwargs):
     args = argparse.Namespace(**kwargs)
     # Conversion to quasicounts by dividing the intensity by gamma_i(1 + delta)
+    d = d.copy()
     d['quasi'] = d['intensity'] / ( args.quasiX *  ( np.power(d['mz'], args.quasiY) ) )
     return(d)
 

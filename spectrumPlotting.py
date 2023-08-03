@@ -88,7 +88,7 @@ def plot_fun(plot_spectrum, bestFormulas, log_plot = False, **kwargs):
     p_color = 'black' if not args.formula else "gray"
     p_lwidth = 0.75 if not args.formula else 0.25
     p_alpha = 1.0 if not args.formula else 0.3
-    plotUtils.singlePlot(plot_spectrum['mz'], plot_spectrum['intensity'], bestFormulas, normalize = True, 
+    plotUtils.singlePlot(plot_spectrum['mz'], plot_spectrum['intensity'], formulas=None, normalize = False, 
                          fig = fig, ax = ax, overrideColor=p_color, linewidth=p_lwidth, alpha = p_alpha)
     if args.formula:
         st = plot_spectrum.dropna(subset = ['formula']).reset_index(drop = True)
@@ -100,8 +100,9 @@ def plot_fun(plot_spectrum, bestFormulas, log_plot = False, **kwargs):
     ylimMax = max([abs(x) for x in ylim])
     ylimRange = ylim[1] - ylim[0]
     xlimRange = xlim[1] - xlim[0]
-    tAdjust = ylimRange * 0.02
-    ax.set_ylim(0, ylim[1] + tAdjust)
+    # tAdjust = ylim[1] + ylimRange * 0.02
+    tAdjust = ylim[1] * 1.18
+    ax.set_ylim(0, tAdjust)
     ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
     texts = []
     for i_row, row in plot_spectrum.iterrows():
@@ -112,16 +113,20 @@ def plot_fun(plot_spectrum, bestFormulas, log_plot = False, **kwargs):
         peak_text = f"{row['mz']:.5f}"
         if args.formula and row['all_formulas']:
             peak_text += f"\n ({row['all_formulas']})"
+
         text = ax.annotate(f"{peak_text}", (x,y), 
                            xytext=(x, y + (ylimRange * 0.025)),
                            textcoords='data', 
-                           arrowprops=dict(arrowstyle = "-", facecolor = 'gray', linestyle='dashed'), fontsize = 8)
+                           arrowprops=dict(arrowstyle = "-", facecolor = 'gray', linestyle='dashed'), fontsize = 6)
+        # text = plt.text(x, y, f"{peak_text}", ha = "center", va = "center", fontsize = 7)
+
         texts.append(text)
-    adjustText.adjust_text(texts, ax=ax)
+    
     ylabel_suf = "raw counts" if not args.quasiScale else "quasi counts"
     ylabel_pref = "Log10 absolute" if log_plot else "Relative"
     ylabel = f"{ylabel_pref} intensity ({ylabel_suf})"
     plt.ylabel(ylabel)
+    adjustText.adjust_text(texts, force_text = (0.3, 0.5), ax=ax) # avoid_self = False, 
     return(fig, ax)
 
 
@@ -184,16 +189,14 @@ def process(**kwargs):
         spectrum['all_formulas'] = formulas
 
     spectrum = spectrum.sort_values(by = 'intensity', ascending = False).reset_index(drop = True)
-    plot_spectrum = spectrum.copy()
-    if args.quasiScale:
-        plot_spectrum['intensity'] = plot_spectrum['quasi']
-    fig, ax = plot_fun(plot_spectrum, bestFormulas, **vars(args))
-    plt.savefig(os.path.join(args.outdir, f"{args.out_pref}_plot.svg"), bbox_inches = 'tight') 
-    plt.close()
-    fig, ax = plot_fun(plot_spectrum, bestFormulas, log_plot=True, **vars(args))
-    plt.savefig(os.path.join(args.outdir, f"{args.out_pref}_log_plot.svg"), bbox_inches = 'tight') 
-    plt.close()
 
+    for suf, log_plot in zip(["plot", "log_plot"], [False, True]):
+        plot_spectrum = spectrum.copy()
+        if args.quasiScale:
+            plot_spectrum['intensity'] = plot_spectrum['quasi']
+        fig, ax = plot_fun(plot_spectrum, bestFormulas, log_plot=log_plot, **vars(args))
+        plt.savefig(os.path.join(args.outdir, f"{args.out_pref}_{suf}.svg"), bbox_inches = 'tight') 
+        plt.close()
 
     stats_spectrum = spectrum.copy()
     if args.formula:
@@ -203,7 +206,8 @@ def process(**kwargs):
     s = 'raw counts' if not args.quasiScale else 'quasi counts'
     k = "intensity" if not args.quasiScale else "quasi"
     df1.loc[len(df1)] = [f"Total intensity ({s})", stats_spectrum[k].sum()]
-    entropy = spectrumMatching.H(stats_spectrum[k])
+    p_i = stats_spectrum[k] / stats_spectrum[k].sum()
+    entropy = spectrumMatching.H(p_i)
     perplexity = np.exp(entropy)
     df1.loc[len(df1)] = ["Entropy", entropy]
     df1.loc[len(df1)] = ["Perplexity", perplexity]
@@ -216,10 +220,15 @@ def process(**kwargs):
         df1.loc[len(df1)] = ["Quasicount function scale", args.quasiX]
         df1.loc[len(df1)] = ["Quasicount function exponent", args.quasiY]
 
+    
     df2 = spectrum.copy().rename(columns = {'mz' : 'Peak m/z', 'intensity' : 'Intensity (raw counts)', 'quasi' : 'Intensity (quasicounts)'}).drop(columns = ['formula_mass', 'formula', 'all_formulas'], errors = 'ignore')
+    
     if args.formula:
-        l = [';'.join([f"{form} ({mass:.5f})"]) if mass else None for form, mass in zip(bestFormulas, bestFormulaMasses)]
+        sorted_best_formulas = spectrum['formula'].values
+        sorted_best_formula_masses = spectrum['formula_mass'].values
+        l = [';'.join([f"{form} ({mass:.5f})"]) if ( mass and 'None' not in str(form)) else None for form, mass in zip(sorted_best_formulas, sorted_best_formula_masses)]
         df2['Peak formulas'] = l
+        df2 = df2.dropna(subset = ["Peak formulas"])
     outExcelFile = os.path.join(args.outdir, f"{args.out_pref}.xlsx")
     writer = pd.ExcelWriter(outExcelFile, engine = 'xlsxwriter')
     df1.to_excel(writer, sheet_name = "Stats", header = False, index = False)

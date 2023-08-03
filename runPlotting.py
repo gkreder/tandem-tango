@@ -37,7 +37,7 @@ def arg_translate(a, v):
             sys.exit(f'Error - unrecognized file extension for input file {v}')
     ret_val = v if str(v) != 'nan' else None
     if ret_arg == "quasiScale" and ret_val:
-        ret_val = {'true' : True, 'false' : False, '1.0' : True, '0.0' : False}[str(ret_val).lower()]
+        ret_val = {'true' : True, 'false' : False, '1.0' : True, '0.0' : False, '1' : True, '0' : False}[str(ret_val).lower()]
         ret_val = '' if ret_val else None
     if ret_arg in ["index", "peaks"] and ret_val:
         ret_val = int(ret_val)
@@ -51,13 +51,13 @@ def main():
 
     in_lines = pd.read_excel(args.xlsx, sheet_name=args.sheet_name)
     for i, row in tqdm(in_lines.iterrows(), total = len(in_lines)):
-        print(row)
         arg_dict = {arg_translate(k, v)[0] : arg_translate(k, v)[1] for (k, v) in row.to_dict().items()}
-        arg_dict = {k : v for (k,v) in arg_dict.items() if v}
+        arg_dict = {k : v for (k,v) in arg_dict.items() if ( v  or ( k == 'quasiScale' and v == ''))}
         arg_str = []
         for k,v in arg_dict.items():
             arg_str.append(f'--{k}')
-            arg_str.append(f'{v}')
+            if v != '':
+                arg_str.append(f'{v}')
         parser = spectrumPlotting.create_parser()
         args = parser.parse_args(arg_str)
         spectrumPlotting.process(**vars(args))
