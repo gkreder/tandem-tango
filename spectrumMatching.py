@@ -71,6 +71,7 @@ def quasi_convert(d, **kwargs):
 
 def filter_data(d, filter, **kwargs):
     args = argparse.Namespace(**kwargs)
+    d = d.copy()
     if filter == 'absolute':
         out_d = d.loc[lambda x : x['intensity'] >= args.absCutoff]
     elif filter == "pdpl":

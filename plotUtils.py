@@ -61,7 +61,7 @@ def singlePlot( mzs, intensities, formulas = None, normalize = True, rotation = 
         plt.ylabel('Relative Intensity')
     else:
         plt.ylabel('Intensity')
-    return(fig, ax)
+    return(fig, ax, vlines)
 
 def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, formulas_b = None, normalize = True, rotation = 90, 
                sideText = None, fontfamily = "DejaVu Sans", fig = None, ax = None, overrideColor = None):

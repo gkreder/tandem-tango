@@ -88,11 +88,14 @@ def plot_fun(plot_spectrum, bestFormulas, log_plot = False, **kwargs):
     p_color = 'black' if not args.formula else "gray"
     p_lwidth = 0.75 if not args.formula else 0.25
     p_alpha = 1.0 if not args.formula else 0.3
-    plotUtils.singlePlot(plot_spectrum['mz'], plot_spectrum['intensity'], formulas=None, normalize = False, 
+    line_objects = []
+    _, _, mass_lines = plotUtils.singlePlot(plot_spectrum['mz'], plot_spectrum['intensity'], formulas=None, normalize = False, 
                          fig = fig, ax = ax, overrideColor=p_color, linewidth=p_lwidth, alpha = p_alpha)
+    line_objects.append(mass_lines)
     if args.formula:
         st = plot_spectrum.dropna(subset = ['formula']).reset_index(drop = True)
-        ax.vlines(st['mz'], 0, st['intensity'], color = 'blue', alpha = 1.0, linewidth = 0.75)
+        overwrite_lines = ax.vlines(st['mz'], 0, st['intensity'], color = 'blue', alpha = 1.0, linewidth = 0.75)
+        line_objects.append(overwrite_lines)
     labels = []
     ax.set_xlim([0, ax.get_xlim()[1]])
     ylim = ax.get_ylim()
@@ -100,9 +103,11 @@ def plot_fun(plot_spectrum, bestFormulas, log_plot = False, **kwargs):
     ylimMax = max([abs(x) for x in ylim])
     ylimRange = ylim[1] - ylim[0]
     xlimRange = xlim[1] - xlim[0]
-    # tAdjust = ylim[1] + ylimRange * 0.02
-    tAdjust = ylim[1] * 1.18
-    ax.set_ylim(0, tAdjust)
+    # yAdjust = ylim[1] + ylimRange * 0.02
+    yAdjust = ylim[1] * 1.18
+    ax.set_ylim(0, yAdjust)
+    xAdjust = xlim[1] * 1.18
+    ax.set_xlim(0, xAdjust)
     ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
     texts = []
     for i_row, row in plot_spectrum.iterrows():
@@ -112,12 +117,12 @@ def plot_fun(plot_spectrum, bestFormulas, log_plot = False, **kwargs):
         y = row['intensity']
         peak_text = f"{row['mz']:.5f}"
         if args.formula and row['all_formulas']:
-            peak_text += f"\n ({row['all_formulas']})"
+            peak_text += f"\n({row['all_formulas']})"
 
         text = ax.annotate(f"{peak_text}", (x,y), 
                            xytext=(x, y + (ylimRange * 0.025)),
                            textcoords='data', 
-                           arrowprops=dict(arrowstyle = "-", facecolor = 'gray', linestyle='dashed'), fontsize = 6)
+                           arrowprops=dict(arrowstyle = "-", facecolor = 'gray', linestyle='dashed'), fontsize = 6, rotation = 90, ha = 'center', va = 'center')
         # text = plt.text(x, y, f"{peak_text}", ha = "center", va = "center", fontsize = 7)
 
         texts.append(text)
@@ -126,7 +131,8 @@ def plot_fun(plot_spectrum, bestFormulas, log_plot = False, **kwargs):
     ylabel_pref = "Log10 absolute" if log_plot else "Relative"
     ylabel = f"{ylabel_pref} intensity ({ylabel_suf})"
     plt.ylabel(ylabel)
-    adjustText.adjust_text(texts, force_text = (0.3, 0.5), ax=ax) # avoid_self = False, 
+    adjustText.adjust_text(texts, force_text = (1.0, 1.0), ax=ax, force_static = (0.5, 0.8), force_explode = (0.5, 0.5), time_lim = 0.5,
+                         avoid_self = True) # avoid_self = False, objects = line_objects, only_move = {'text' : 'xy'}, objects = line_objects
     return(fig, ax)
 
 
@@ -187,6 +193,7 @@ def process(**kwargs):
         spectrum['formula'] = bestFormulas
         spectrum['formula_mass'] = bestFormulaMasses
         spectrum['all_formulas'] = formulas
+        spectrum['all_masses'] = formulaMasses
 
     spectrum = spectrum.sort_values(by = 'intensity', ascending = False).reset_index(drop = True)
 
@@ -224,9 +231,12 @@ def process(**kwargs):
     df2 = spectrum.copy().rename(columns = {'mz' : 'Peak m/z', 'intensity' : 'Intensity (raw counts)', 'quasi' : 'Intensity (quasicounts)'}).drop(columns = ['formula_mass', 'formula', 'all_formulas'], errors = 'ignore')
     
     if args.formula:
-        sorted_best_formulas = spectrum['formula'].values
-        sorted_best_formula_masses = spectrum['formula_mass'].values
-        l = [';'.join([f"{form} ({mass:.5f})"]) if ( mass and 'None' not in str(form)) else None for form, mass in zip(sorted_best_formulas, sorted_best_formula_masses)]
+        sorted_best_formulas = spectrum['all_formulas'].values
+        sorted_best_formula_masses = spectrum['all_masses'].values
+        l = [None for i in range(len(df2))]
+        for i_form, (forms, masses) in enumerate(zip(sorted_best_formulas, sorted_best_formula_masses)):
+            if ( 'none' not in str(forms).lower() ) and masses:
+                l[i_form] = ';'.join([f"{form} ({float(mass):.5f})" for form, mass in zip(forms.split(','), masses.split(','))])
         df2['Peak formulas'] = l
         df2 = df2.dropna(subset = ["Peak formulas"])
     outExcelFile = os.path.join(args.outdir, f"{args.out_pref}.xlsx")
