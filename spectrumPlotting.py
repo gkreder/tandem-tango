@@ -84,7 +84,7 @@ def plot_fun(plot_spectrum, bestFormulas, log_plot = False, **kwargs):
         plot_spectrum['intensity'] = plot_spectrum['log_intensity']
     else:
         plot_spectrum['intensity'] = plot_spectrum['normalized_intensity']
-    fig, ax = plt.subplots(figsize = (12,9))
+    fig, ax = plt.subplots(figsize = (15,9))
     p_color = 'black' if not args.formula else "gray"
     p_lwidth = 0.75 if not args.formula else 0.25
     p_alpha = 1.0 if not args.formula else 0.3
@@ -106,7 +106,7 @@ def plot_fun(plot_spectrum, bestFormulas, log_plot = False, **kwargs):
     # yAdjust = ylim[1] + ylimRange * 0.02
     yAdjust = ylim[1] * 1.18
     ax.set_ylim(0, yAdjust)
-    xAdjust = xlim[1] * 1.18
+    xAdjust = xlim[1] * 1.1
     ax.set_xlim(0, xAdjust)
     ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
     texts = []
@@ -119,10 +119,20 @@ def plot_fun(plot_spectrum, bestFormulas, log_plot = False, **kwargs):
         if args.formula and row['all_formulas']:
             peak_text += f"\n({row['all_formulas']})"
 
+        # text = ax.annotate(f"{peak_text}", (x,y), 
+        #                    xytext=(x, y + (ylimRange * 0.025)),
+        #                    textcoords='data', 
+        #                    arrowprops=dict(arrowstyle = "-", facecolor = 'gray', linestyle='dashed'), fontsize = 6, rotation = 90, ha = 'center', va = 'center')
+
+        text_shift = len(peak_text.split('\n')) * (xlimRange * 0.0035)  # Assuming an approximate height per character
         text = ax.annotate(f"{peak_text}", (x,y), 
-                           xytext=(x, y + (ylimRange * 0.025)),
+                           xytext=(x - text_shift, y + (ylimRange * 0.025)),
+                        #    xytext=(x, y + (ylimRange * 0.025)),
                            textcoords='data', 
-                           arrowprops=dict(arrowstyle = "-", facecolor = 'gray', linestyle='dashed'), fontsize = 6, rotation = 90, ha = 'center', va = 'center')
+                           fontsize = 6, rotation = 90, 
+                           ha = 'center', va = 'center')
+        
+
         # text = plt.text(x, y, f"{peak_text}", ha = "center", va = "center", fontsize = 7)
 
         texts.append(text)
@@ -228,7 +238,7 @@ def process(**kwargs):
         df1.loc[len(df1)] = ["Quasicount function exponent", args.quasiY]
 
     
-    df2 = spectrum.copy().rename(columns = {'mz' : 'Peak m/z', 'intensity' : 'Intensity (raw counts)', 'quasi' : 'Intensity (quasicounts)'}).drop(columns = ['formula_mass', 'formula', 'all_formulas'], errors = 'ignore')
+    df2 = spectrum.copy().rename(columns = {'mz' : 'Peak m/z', 'intensity' : 'Intensity (raw counts)', 'quasi' : 'Intensity (quasicounts)'}).drop(columns = ['formula_mass', 'formula', 'all_formulas', 'all_masses'], errors = 'ignore')
     
     if args.formula:
         sorted_best_formulas = spectrum['all_formulas'].values
