@@ -72,6 +72,8 @@ def quasi_convert(d, **kwargs):
 def filter_data(d, filter, **kwargs):
     args = argparse.Namespace(**kwargs)
     d = d.copy()
+    if len(d) == 0:
+        return(d)
     if filter == 'absolute':
         out_d = d.loc[lambda x : x['intensity'] >= args.absCutoff]
     elif filter == "pdpl":
@@ -96,7 +98,8 @@ def filter_data(d, filter, **kwargs):
         for mz in mzs:
             if mz not in out_d['mz'].values:
                 continue
-            out_d = out_d.loc[lambda x : np.abs(x['mz'] - mz) > args.resClearance]    
+            # out_d = out_d.loc[lambda x : np.abs(x['mz'] - mz) > args.resClearance]    
+            out_d = pd.concat([out_d.loc[lambda x : x['mz'] == mz], out_d.loc[lambda x : np.abs(x['mz'] - mz) > args.resClearance]]).reset_index(drop = True)
     return(out_d)
 
 def H(x):
@@ -104,6 +107,58 @@ def H(x):
     return(h)
 
 def run_matching(args):
+    """
+    :param mzml1: Path to .mzML file
+    :type mzml1: string
+    :param mzml2: Path to .mzML file
+    :type mzml2: string
+    :param index1: Index of spectrum in mzml1
+    :type index1: int
+    :param index2: Index of spectrum in mzml2
+    :type index2: int
+    :param quasiX:
+    :type quasiX: float
+    :param quasiY:
+    :type quasiY: float
+    :param outDir: Output directory
+    :type outDir: str
+    :param parentMZ: Parent m/z
+    :type parentMZ: float
+    :param R:
+    :type R: float
+    :param parentFormula: Optionally provided parent formula, defaults to None
+    :type parentFormula: str, optional
+    :parmam absCutoff: Absolute intensity cutoff, defaults to 0
+    :type absCutoff: float, optional
+    :parmam relCutoff: Relative intensity cutoff, defaults to 0
+    :type relCutoff: float, optional
+    :param DUMin: defaults to -0.5
+    :type DUMin: float, optional
+    :param PEL: Peak exclusion list. Only one of PEL or PDPL can be given, defaults to None
+    :type PEL: str, optional
+    :param PDPL: Predefined peak list. Only one of PEL or PDPL can be given, defaults to None
+    :type PDPL: str, optional
+    :param startingIndex: Starting index for picking spectrum, defaults to 0
+    :type startingIndex: int, optional
+    :param gainControl: defaults to False
+    :type gainControl: bool, optional
+    :param quasiCutoff: Quasicount cutoff (note the odd default value implementation), defaults to 5
+    :type quasiCutoff: float, optional
+    :param minSpectrumQuasiCounts: Minimum spectrum quasi counts, defaults to 20
+    :type minSpectrumQuasiCounts: float, optional
+    :param minTotalPeaks: Minimum total peaks required (after filtering), defaults to 2
+    :type minTotalPeaks: float, optional
+    :param outPrefix: Output prefix to use instead of default filenames if provided, defaults to None
+    :type outPrefix: str, optional
+    :param silent: Run in silent mode with no text output, defaults to False
+    :type silent: bool, optional
+    :param no_log_plots: Dont produce any log plots, defaults to False
+    :type no_log_plots: bool, optional
+    :param no_matching_results: If set to true, just returns the statistics dataframe without writing output and exits, defaults to False
+    :type no_matching_results: bool, optional
+    :param intersection_only: If set to True only runs the intersection (not union) case, defaults to False
+    :type intersection_only: bool, optional
+    """
 
     args.resClearance = 200 / args.R
     args.resClearance = float(args.resClearance)
@@ -170,7 +225,7 @@ def run_matching(args):
         print(vars(args), file = f)
 
 
-    data = ({}, {})
+    data = [{}, {}]
     for i_d, d in enumerate(data):
         reader = pytmzml.MzML([args.mzml1, args.mzml2][i_d])
         spec = reader.get_by_index([args.index1, args.index2][i_d])
@@ -221,7 +276,8 @@ def run_matching(args):
         # --------------------------------------------
         if not args.silent:
             print("Filtering peaks....")
-        d = pd.DataFrame(d)
+        # d = pd.DataFrame(d)
+        d = pd.DataFrame({'mz' : d['mz'], 'intensity' : d['intensity']}) # 2023-09-07
         # Absolute intensity cutoff
         d = filter_data(d, 'absolute', **vars(args))
         # Quasicount conversion
