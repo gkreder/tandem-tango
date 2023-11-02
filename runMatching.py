@@ -8,7 +8,9 @@ import spectrumMatching
 ############################################################
 parser = argparse.ArgumentParser()
 parser.add_argument("--tsv", required = True)
+parser.add_argument("--verbose", action = "store_true")
 args = parser.parse_args()
+verbose = args.verbose
 ############################################################
 
 with open(args.tsv, 'r') as f:
@@ -27,6 +29,9 @@ for i_line, line in enumerate(tqdm(lines)):
     # cmd_args = [f"--{h} {a}" for (h, a) in zip(header, args) if a not in ["", '\n']]
     # cmd = f"python spectrumMatching.py {' '.join(cmd_args)}"
     # os.system(cmd)
-    run_args = spectrumMatching.get_args(" ".join(cmd_args))
+    cmd_str = " ".join(cmd_args)
+    if verbose:
+        print(f"{cmd_str}")
+    run_args = spectrumMatching.get_args(cmd_str)
     spectrumMatching.run_matching(run_args)
     
