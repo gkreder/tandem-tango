@@ -14,26 +14,36 @@ import argparse
 import formulaUtils
 import molmass
 import pickle as pkl
+import shutil
 ###################################################
+def get_args(arg_string = None):
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--mzML', required = True, help = "Merged mzML containing all spectra of interest")
-parser.add_argument('--outDir', required = True)
-parser.add_argument('--inVoltages', required = True, help = "Input list of voltages to look at")
-parser.add_argument('--injectionTimeAdjust', required = True, choices = ['True', 'False'])
-parser.add_argument('--mode', required = True, choices = ['Pos', 'Neg'])
-parser.add_argument("--parentFormula", required = True)
-parser.add_argument('--peakList', required = True, help = "curated peak list")
-parser.add_argument("--lowerPercent", type = float, default = 0.7)
-parser.add_argument("--upperPercent", type = float, default = 1.3)
-parser.add_argument("--numSlices", type = int, default = 15)
-parser.add_argument("--ticPeakCutoff", type = float, default = 0.02)
-parser.add_argument("--rawPeakCutoff", type = float, default = 0)
-parser.add_argument("--nSpectraFilter", type = int, default = 20)
-parser.add_argument("--mzTolInter", type = float, default = 0.01)
-parser.add_argument("--startScanIdx", default = None)
-parser.add_argument("--endScanIdx", default = None)
-args = parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--mzML', required = True, help = "Merged mzML containing all spectra of interest")
+    parser.add_argument('--outDir', required = True)
+    parser.add_argument('--inVoltages', required = True, help = "Input list of voltages to look at")
+    parser.add_argument('--injectionTimeAdjust', required = True, choices = ['True', 'False', 'FALSE', 'TRUE'])
+    parser.add_argument('--mode', required = True, choices = ['Pos', 'Neg'])
+    # parser.add_argument("--parentFormula", required = True)
+    parser.add_argument('--peakList', required = True, help = "curated peak list")
+    parser.add_argument("--lowerPercent", type = float, default = 0.7)
+    parser.add_argument("--upperPercent", type = float, default = 1.3)
+    parser.add_argument("--numSlices", type = int, default = 15)
+    parser.add_argument("--ticPeakCutoff", type = float, default = 0.02)
+    parser.add_argument("--rawPeakCutoff", type = float, default = 0)
+    parser.add_argument("--nSpectraFilter", type = int, default = 20)
+    parser.add_argument("--mzTolInter", type = float, default = 0.01)
+    parser.add_argument("--startScanIdx", default = None)
+    parser.add_argument("--endScanIdx", default = None)
+
+    if arg_string == None:
+        args = parser.parse_args()
+    else:
+        args = parser.parse_args(arg_string.split(" "))
+
+    if type(args.injectionTimeAdjust) == str:
+        args.injectionTimeAdjust = {"FALSE" : False, "TRUE" : True}[args.injectionTimeAdjust.upper()]
+    return(args)
 
 # parser.add_argument('--outPref', required = True, help = "Prefix for output filenames")
 
@@ -41,7 +51,7 @@ args = parser.parse_args()
 
 
 
-def calc_ce_column(ce, df_peakList, vMzmlDir):
+def calc_ce_column(ce, df_peakList, vMzmlDir, pl_mzs, args):
     # peak_list_fname = "/scratch/users/gkreder/media/gkreder/barracuda/data/mass_spec/meyer/210128_MS-MS_Comparison_Algorithm/210905_neg_gammas_calc/210825_QE_Dex_Neg_Peaks_formulas.tsv"
     # df_peakList = pd.read_csv(peak_list_fname, sep = '\t').sort_values(by = 'm/z').reset_index(drop = True)
     # pl_mzs = df_peakList['m/z'].values
@@ -67,7 +77,7 @@ def calc_ce_column(ce, df_peakList, vMzmlDir):
     out_cols_avgFracs = []
     index_counts = []
     
-    for ne in range(num_slices):
+    for ne in range(args.numSlices):
         el = edges[ne]
         er = edges[ne + 1]
         cname = f"{ce}_{el}_{er}"
@@ -144,13 +154,14 @@ def calc_ce_column(ce, df_peakList, vMzmlDir):
 
 
 
-if __name__ == "__main__":
-    args.injectionTimeAdjust = {"True" : True, "False" : False}[args.injectionTimeAdjust]
-    
+
+def main(args):
     os.system(f'mkdir -p {args.outDir}')
     os.chmod(args.outDir, 0o777)
+    args.log_file = os.path.join(args.outDir, "run.log")
+
     
-    with open(os.path.join(args.outDir, "commandLog.txt"), 'w') as f:
+    with open(args.log_file, 'w') as f:
         print(' '.join(sys.argv), file = f)
         
     ondisc_exp = OnDiscMSExperiment()
@@ -178,22 +189,23 @@ if __name__ == "__main__":
             tics[i] = tics[i] * injection_times[i]
             
     
-    df_voltages = pd.read_excel(args.inVoltages, header = None, names = ['Voltages'])
-    # df_voltages = pd.DataFrame(df_voltages[df_voltages['Voltages'] != 75]).reset_index(drop = True)
+    # df_voltages = pd.read_excel(args.inVoltages, header = None, names = ['Voltages'])
+    df_voltages = pd.read_csv(args.inVoltages, header = None, names = ['Voltages'], sep = '\t')
     
     ces = df_voltages['Voltages'].values
     
-    parent_form = molmass.Formula(args.parentFormula).formula
+    # parent_form = molmass.Formula(args.parentFormula).formula
     charge = {"Pos" : 1, "Neg" : -1}[args.mode]
     
 
     
     df = pd.DataFrame()
-    df_peakList = pd.read_excel(args.peakList).sort_values(by = 'm/z').reset_index(drop = True)
+    # df_peakList = pd.read_excel(args.peakList).sort_values(by = 'm/z').reset_index(drop = True)
+    df_peakList = pd.read_csv(args.peakList, sep = '\t').sort_values(by = 'm/z').reset_index(drop = True)
     pl_mzs = df_peakList['m/z'].values
     
-    fdForms = [formulaUtils.findBestForm(x, parent_form, toleranceDa = 0.01, charge = charge) for x in pl_mzs]
-    df_peakList['formula'] = list(zip(*fdForms))[0]
+    # fdForms = [formulaUtils.findBestForm(x, parent_form, toleranceDa = 0.01, charge = charge) for x in pl_mzs]
+    # df_peakList['formula'] = list(zip(*fdForms))[0]
     
     polarities_int = {'Pos' : 1, 'Neg' : 2}[args.mode]
     
@@ -202,8 +214,10 @@ if __name__ == "__main__":
         ce_indices = np.where((levels == 2) & (voltages == ce) & (polarities == polarities_int))[0]
         if len(ce_indices) == 0:
             skip_ces.append(ce)
-            print(ce)
             continue
+        if len(skip_ces) > 0:
+            with open(args.log_file, 'a') as f:
+                print(f"\nNo spectra found for the following collision energies: {skip_ces}", file = lf)
         ce_median = np.median(tics[ce_indices])
         # ce_indices_mfilt = np.where((levels == 2) & (voltages == ce) & (polarities == 1) & (tics > (7e7)) & (tics < (1.3e8)))[0]
         ce_indices_mfilt = np.where((levels == 2) & (voltages == ce) & (polarities == polarities_int) & (tics > (ce_median * args.lowerPercent)) & (tics < (ce_median * args.upperPercent)))[0]
@@ -214,8 +228,8 @@ if __name__ == "__main__":
         ce_tic_min = tics[ce_indices_mfilt].min()
         ce_tic_max = tics[ce_indices_mfilt].max()
 
-        num_slices = args.numSlices
-        edges = np.linspace(ce_tic_min, ce_tic_max, num_slices + 1)
+        # num_slices = args.numSlices
+        edges = np.linspace(ce_tic_min, ce_tic_max, args.numSlices + 1)
 
         vMzmlDir = os.path.join(args.outDir, "voltage_filtered_mzmls")
         os.system(f"mkdir -p {vMzmlDir}")
@@ -232,7 +246,7 @@ if __name__ == "__main__":
         del write_consumer
 
 
-    output_all = [calc_ce_column(ce, df_peakList, vMzmlDir) for ce in tqdm([x for x in ces if x not in skip_ces])]
+    output_all = [calc_ce_column(ce, df_peakList, vMzmlDir, pl_mzs, args) for ce in tqdm([x for x in ces if x not in skip_ces])]
     
     
     colnames_all = [x[0] for x in output_all]
@@ -255,6 +269,7 @@ if __name__ == "__main__":
     pkl.dump(avgFracs_cols_all, open(os.path.join(args.outDir, "avgFracs_cols.pkl"), 'wb'))
 
     df_out = pd.DataFrame(df_peakList[['m/z', 'formula']])
+    # df_out = pd.DataFrame(df_peakList[['m/z']])
     ss_dict = {}
     for cname, count, col in zip(colnames_all, index_counts_all, output_cols_all):
         df_out[cname] = col
@@ -345,3 +360,10 @@ if __name__ == "__main__":
     out_fname_mv = os.path.join(args.outDir, "df_meansVars.tsv")
     df_out_mv.to_csv(out_fname_mv, sep = '\t', index = False, encoding = 'utf-16')
     os.chmod(out_fname_mv, 0o777)
+    shutil.rmtree(vMzmlDir, ignore_errors = True)
+
+
+if __name__ == "__main__":
+    args = get_args()
+    sys.exit(args)
+    main(args)
