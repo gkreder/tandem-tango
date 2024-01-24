@@ -202,6 +202,8 @@ def main(args):
     df = pd.DataFrame()
     # df_peakList = pd.read_excel(args.peakList).sort_values(by = 'm/z').reset_index(drop = True)
     df_peakList = pd.read_csv(args.peakList, sep = '\t').sort_values(by = 'm/z').reset_index(drop = True)
+    if 'formula' not in df_peakList.columns:
+        df_peakList['formula'] = None
     pl_mzs = df_peakList['m/z'].values
     
     # fdForms = [formulaUtils.findBestForm(x, parent_form, toleranceDa = 0.01, charge = charge) for x in pl_mzs]
