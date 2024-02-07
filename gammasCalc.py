@@ -35,6 +35,7 @@ def get_args(arg_string = None):
     parser.add_argument("--mzTolInter", type = float, default = 0.01)
     parser.add_argument("--startScanIdx", default = None)
     parser.add_argument("--endScanIdx", default = None)
+    parser.add_argument("--TIC_calculation", default = "peak_list", choices = ["peak_list", "total"], help = "Whether to calculate TIC using the peak list or the total spectrum TIC")
 
     if arg_string == None:
         args = parser.parse_args()
@@ -49,6 +50,21 @@ def get_args(arg_string = None):
 
 ###################################################
 
+def TIC(spec, df_peakList, args):
+    if args.TIC_calculation == "peak_list":
+        intensities = []
+        for mz in df_peakList['m/z']:
+            closest_peak = min(spec, key = lambda x: abs(x.getMZ() - mz) if abs(x.getMZ() - mz) < args.mzTolInter else float('inf'))
+            
+            if type(closest_peak) == float and closest_peak == float('inf'):
+                continue
+            intensities.append(closest_peak.getIntensity())
+        return sum(intensities)
+                               
+    elif args.TIC_calculation == "total":
+        return spec.calculateTIC()
+    else:
+        raise ValueError("Invalid TIC calculation method")
 
 
 def calc_ce_column(ce, df_peakList, vMzmlDir, pl_mzs, args):
@@ -64,9 +80,11 @@ def calc_ce_column(ce, df_peakList, vMzmlDir, pl_mzs, args):
     ce_ondisc_exp.openFile(ce_out_mzml_fname)
     ce_ns = ce_ondisc_exp.getNrSpectra()
     if args.injectionTimeAdjust:
-        ce_tics = [ce_ondisc_exp.getSpectrum(int(i)).calculateTIC() * ce_ondisc_exp.getSpectrum(int(i)).getAcquisitionInfo()[0].getMetaValue('MS:1000927') for i in range(ce_ns)]
+        # ce_tics = [ce_ondisc_exp.getSpectrum(int(i)).calculateTIC() * ce_ondisc_exp.getSpectrum(int(i)).getAcquisitionInfo()[0].getMetaValue('MS:1000927') for i in range(ce_ns)]
+        ce_tics = [TIC(ce_ondisc_exp.getSpectrum(int(i)), df_peakList, args) * ce_ondisc_exp.getSpectrum(int(i)).getAcquisitionInfo()[0].getMetaValue('MS:1000927') for i in range(ce_ns)]
     else:
-        ce_tics = [ce_ondisc_exp.getSpectrum(int(i)).calculateTIC() for i in range(ce_ns)]
+        # ce_tics = [ce_ondisc_exp.getSpectrum(int(i)).calculateTIC() for i in range(ce_ns)]
+        ce_tics = [TIC(ce_ondisc_exp.getSpectrum(int(i)), df_peakList, args) for i in range(ce_ns)]
         
     
     colnames = []
@@ -102,9 +120,11 @@ def calc_ce_column(ce, df_peakList, vMzmlDir, pl_mzs, args):
             if args.injectionTimeAdjust:
                 injection_time = s.getAcquisitionInfo()[0].getMetaValue('MS:1000927')
                 s_ints = s_ints * injection_time
-                s_indices = np.where((s_ints <= (s.calculateTIC() * tic_peak_cutoff * injection_time)) & (s_ints >= args.rawPeakCutoff))[0]
+                # s_indices = np.where((s_ints <= (s.calculateTIC() * tic_peak_cutoff * injection_time)) & (s_ints >= args.rawPeakCutoff))[0]
+                s_indices = np.where((s_ints <= (TIC(s, df_peakList, args) * tic_peak_cutoff * injection_time)) & (s_ints >= args.rawPeakCutoff))[0]
             else:
-                s_indices = np.where((s_ints <= (s.calculateTIC() * tic_peak_cutoff)) & (s_ints >= args.rawPeakCutoff))[0]
+                # s_indices = np.where((s_ints <= (s.calculateTIC() * tic_peak_cutoff)) & (s_ints >= args.rawPeakCutoff))[0]
+                s_indices = np.where((s_ints <= (TIC(s, df_peakList, args) * tic_peak_cutoff)) & (s_ints >= args.rawPeakCutoff))[0]
             avgFrac.append(len(s_indices) / len(s_ints))
             s_mzs = s_mzs[s_indices]
             s_ints = s_ints[s_indices]
@@ -172,9 +192,13 @@ def main(args):
     polarities = -1 * np.ones(ns)
     voltages = -1 * np.ones(ns)
     injection_times = -1 * np.ones(ns)
+    df_peakList = pd.read_csv(args.peakList, sep = '\t').sort_values(by = 'm/z').reset_index(drop = True)
+    if 'formula' not in df_peakList.columns:
+        df_peakList['formula'] = None
     for i in tqdm(range(ns)):
         spec = ondisc_exp.getSpectrum(i)
-        tics[i] = spec.calculateTIC()
+        # tics[i] = spec.calculateTIC()
+        tics[i] = TIC(spec, df_peakList, args)
         levels[i] = spec.getMSLevel()
         polarities[i] = spec.getInstrumentSettings().getPolarity()
         if args.injectionTimeAdjust:
