@@ -535,17 +535,7 @@ def run_matching(args):
                 s += " and parent formula filtering "
             print(f"There were too few peaks after merging spectra{s}({len(dfCs['Intersection'])})", file = f)
         return
-    # outRows.append([iPair, spectraMeta.loc[iSpec]['sourceFile'], 
-                    # spectraMeta.iloc[iSpec]['specIndex_mzML'], 
-                    # spectraMeta.loc[jSpec]['sourceFile'], 
-                    # spectraMeta.iloc[jSpec]['specIndex_mzML']] + list(dfStats['Intersection'][['M', 'S_A', 'S_B', 'D^2', 'pval_D^2', 'G^2', 'pval_G^2']].values))
-    # outFilePair = os.path.join(outDirInt, onp.replace('.pkl', f"_{iPair}.xlsx"))
-    # writer = pd.ExcelWriter(outFilePair, engine = 'xlsxwriter')
-    # dfStats.drop(labels =['quasi_A', 'quasi_B'], axis = 0).rename(index = {'S_A' : 's_A (quasicounts)', 'S_B' : 's_B (quasicounts)'}).to_excel(writer, sheet_name = "Stats")
-    # dfOut.drop(labels = [x for x in dfOut.columns if "_Union" in x], axis = 1).dropna(subset = ['m/z_A', 'm/z_B']).to_excel(writer, sheet_name = "Spectra_Intersection", index = False)
-    # dfOut.drop(labels = [x for x in dfOut.columns if "_Intersection" in x], axis = 1).to_excel(writer, sheet_name = "Spectra_Union", index = False)
-    # # dfOut.to_excel(writer, sheet_name = "Spectra", index = False)
-    # writer.save()
+
     if args.no_matching_results:
         return(dfStats)
     
@@ -556,8 +546,6 @@ def run_matching(args):
     dfOut.drop(labels = [x for x in dfOut.columns if "_Intersection" in x], axis = 1).to_excel(writer, sheet_name = "Spectra_Union", index = False)
     for isuf, suf in enumerate(['A', 'B']):
         pd.DataFrame({f"m/z_{suf}" : dataBackup[isuf]['mz'], f"I_{suf} (raw intensity)" : dataBackup[isuf]['intensity']}).to_excel(writer, sheet_name = f"Spectrum_{suf}_Raw", index = False) 
-    # dfOut.to_excel(writer, sheet_name = "Spectra", index = False)
-    # writer.save()
     writer.close()
 
 
@@ -598,16 +586,10 @@ def run_matching(args):
         xlim = ax.get_xlim()
         ylimMax = max([abs(x) for x in ylim])
         ylimRange = ylim[1] - ylim[0]
-        # plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), 0, sideText)
         plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), ylimMax - ( 0.050 * ylimRange ), f"{plotJoin}:", fontsize = 20)
         plt.text(xlim[0] + ( ( xlim[1] - xlim[0] ) *  0.01 ), ylimMax - ( .03 * ylimRange ), "Spectrum A", fontsize = 15, fontfamily = 'DejaVu Sans')
         plt.text(xlim[0] + ( ( xlim[1] - xlim[0] ) *  0.01 ), -ylimMax + ( .03 * ylimRange ), "Spectrum B", fontsize = 15, fontfamily = 'DejaVu Sans')
-        # plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), 1.025, f"{plotJoin}:", fontsize = 25)
-        # plt.text(xlim[0] + ( ( xlim[1] - xlim[0] ) *  0.01 ), 1.03, "Spectrum A", fontsize = 12, fontfamily = 'DejaVu Sans')
-        # plt.text(xlim[0] + ( ( xlim[1] - xlim[0] ) *  0.01 ), -1.07, "Spectrum B", fontsize = 12, fontfamily = 'DejaVu Sans')
         plotFilePair = os.path.join(args.outDir, f"{baseOutFileName}_{plotJoin}_plot.svg")
-        # plotFilePair = outFilePair.replace('.xlsx', f'_{plotJoin}.pdf')
-        # plt.title(os.path.basename(plotFilePair).replace('.pdf', ''))
         plot_title = f"{suf1} Scan {ind1} (A) vs.\n {suf2} Scan {ind2} (B) [{plotJoin}]"
         plt.title(f"{plot_title}")
         plt.ylabel("Relative intensity (quasicounts)")
@@ -615,8 +597,6 @@ def run_matching(args):
         plt.close()
 
         if not args.no_log_plots:
-            # Absolute quasicount scale 
-            # dfPlot = dfPlot.loc[lambda x : (x['quasi_A'] > 1) & (x['quasi_B'] > 1)]
             gda, gdb = grayData
             fig, ax = plotUtils.mirrorPlot(gda['mz'], gdb['mz'], np.log10(gda['quasi']), np.log10(gdb['quasi']), None, None, normalize = False, sideText = sideText, overrideColor = "gray")
             plotUtils.mirrorPlot(dfPlot['mz_A'], dfPlot['mz_B'], np.log10(dfPlot['quasi_A']), 
@@ -628,13 +608,10 @@ def run_matching(args):
             xlim = ax.get_xlim()
             ylimMax = max([abs(x) for x in ylim])
             ylimRange = ylim[1] - ylim[0]
-            # plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), 0, sideText)
             plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), ylimMax - ( 0.050 * ylimRange ), f"{plotJoin}:", fontsize = 20)
             plt.text(xlim[0] + ( ( xlim[1] - xlim[0] ) *  0.01 ), ylimMax - ( .03 * ylimRange ), "Spectrum A", fontsize = 15, fontfamily = 'DejaVu Sans')
             plt.text(xlim[0] + ( ( xlim[1] - xlim[0] ) *  0.01 ), -ylimMax + ( .03 * ylimRange ), "Spectrum B", fontsize = 15, fontfamily = 'DejaVu Sans')
             plotFilePair = os.path.join(args.outDir, f"{baseOutFileName}_{plotJoin}_quasicount_log_plot.svg")
-            # plotFilePair = outFilePair.replace('.xlsx', f'_{plotJoin}_quasi.pdf')
-            # plt.title(os.path.basename(plotFilePair).replace('.pdf', ''))
             plot_title = f"{suf1} Scan {ind1} (A) vs.\n {suf2} Scan {ind2} (B) [{plotJoin}]"
             plt.title(f"{plot_title}")
             plt.ylabel("Log10 absolute intensity (quasicounts)")
@@ -642,39 +619,6 @@ def run_matching(args):
             plt.savefig(plotFilePair, bbox_inches = 'tight') 
             plt.close()
     return(dfStats)
-
-        
-
-
-
-    # dfOut = pd.DataFrame(outRows, columns = ["pair_index", "mzML File 1","File 1 spectrum index (A)","mzML File 2","File 2 spectrum index (B)","M","s_A","s_B","D^2","p-val (D^2)","G^2","p-val (G^2)"])
-    # # dfOut = dfOut[dfOut['M'] > 1].reset_index(drop = True)
-    # dfOut.at[0, '# of spectrum pairs compared'] = len(dfOut)
-    # for pvalType in ['D^2', 'G^2']:
-    #     # plt.plot(dfOut['p-val (D^2)'])
-    #     data = dfOut[f'p-val ({pvalType})']
-    #     # scipy.stats.kstest(th, th)
-    #     res = scipy.stats.kstest(data, 'uniform')
-    #     kspval, ksstat = res.pvalue, res.statistic
-    #     x = np.sort(data)
-    #     y = 1. * np.arange(len(data)) / (len(data) - 1)
-    #     th = scipy.stats.uniform().cdf(x)
-    #     # th = np.arange(0, 1.01, 0.01)
-    #     fig, ax = plt.subplots()
-    #     plt.plot(x,y)
-    #     plt.plot(x, th)
-    #     title = f"{compoundRow['Compounds']} {args.CE}V {pvalType} {args.mode}"
-    #     plt.title(title)
-    #     plt.figtext(0.92, 0.5, f"N: {len(dfOut)}\nks-stat:{ksstat:.3f}\npval: {kspval:.3f}", fontsize=14, ha = 'left')
-    #     plotFile = os.path.basename(args.inFile).replace('.pkl', f'_{pvalType.replace("^", "")}.pdf')
-    #     plotFile = os.path.join(args.outDir, plotFile)
-    #     plt.savefig(plotFile, bbox_inches = 'tight')
-    #     plt.close()
-    #     dfOut.at[0, f'K-S test {pvalType} p-val'] = kspval
-    # dfOut.insert(12, None, None)
-    # outFile = os.path.join(args.outDir, os.path.basename(args.inFile).replace('.pkl', '.tsv'))
-    # dfOut.to_csv(outFile, sep = '\t', index = False)
-
 
 def get_args(arg_string = None):
 

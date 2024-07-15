@@ -1,0 +1,17 @@
+[project]
+name = "tandem_tango"
+version = "0.1.0"
+description = "MS2 spectrum analysis and comparison"
+authors = ["gkreder <gk@reder.io>"]
+channels = ["conda-forge", "bioconda"]
+platforms = ["osx-arm64", "win-64", "linux-64"]
+
+[tasks]
+
+[dependencies]
+snakemake = ">=8.16.0,<8.17"
+ipykernel = ">=6.29.5,<6.30"
+lxml = ">=5.2.2,<5.3"
+
+[pypi-dependencies]
+pyteomics = "*"
