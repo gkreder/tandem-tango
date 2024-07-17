@@ -2,10 +2,11 @@ from typing import Dict, List
 import copy
 import numpy as np
 import logging
-from typing import Dict, Tuple, List, Literal
+from typing import Dict, List, Literal
 import copy
 import warnings
 
+import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import scipy.stats
@@ -414,7 +415,7 @@ def calc_spectra_metrics(merged_spectrum : pd.DataFrame,
 def calc_join_formulas(mz_1 : float, mz_2 : float,
                       tolerance : float,
                       du_min : float,
-                      possible_formulas : List[Tuple[str, float]]) -> Tuple[List[str], List[float], List[str]]:
+                      possible_formulas : List[tuple[str, float]]) -> tuple[List[str], List[float], List[str]]:
     """Given two m/z values, calculates the possible formulas and their expected m/z's."""
     if np.isnan(mz_1) and np.isnan(mz_2):
         raise ValueError("Both m/z values are NaN, at least one must be valid.")
@@ -431,7 +432,7 @@ def calc_formulas(merged_spectrum : pd.DataFrame, parent_formula : str,
                   subformula_tolerance : float,
                   du_min : float,
                   mz_col : str = 'm/z',
-                  suffixes : List[str] = ['A', 'B'],) -> Tuple[List[List[str]], List[List[float]]]:
+                  suffixes : List[str] = ['A', 'B'],) -> tuple[List[List[str]], List[List[float]]]:
     """Calculates the formulas and expected m/z's for a merged spectrum."""
     all_formulas = formulaUtils.generateAllForms(parent_formula)
     # Zip the m/z values across the spectra
@@ -441,6 +442,20 @@ def calc_formulas(merged_spectrum : pd.DataFrame, parent_formula : str,
     best_formulas_str = [", ".join([x.replace("None", "") for x in f]) if f is not None else None for f in best_formulas]
     th_masses_str = [", ".join([str(x) for x in f]) if f is not None else None for f in th_masses]
     return best_formulas_str, th_masses_str
+
+def add_spectra_formulas(merged_spectrum : pd.DataFrame, parent_formula : str, 
+                         subformula_tolerance : float, du_min : float,
+                         pdpl : List[float] = None) -> pd.DataFrame:
+    """Adds the formulas and expected m/z's to a merged spectrum DataFrame"""
+    best_formulas_str, th_masses_str = calc_formulas(merged_spectrum, parent_formula, subformula_tolerance, du_min,)
+    formula_spectrum = merged_spectrum.copy()
+    formula_spectrum['Formula'] = best_formulas_str
+    formula_spectrum['m/z_calculated'] = th_masses_str
+    # If there's no pre-defined peak list (pdpl) and a parent formula was specified drop rows with no formula
+    if pdpl is None:
+        logging.debug("PDPL not specified - Filtering non-formula fragments")
+        formula_spectrum = formula_spectrum.dropna(subset = ['Formula'])
+    return formula_spectrum
 
 
 #####################################################
@@ -509,32 +524,164 @@ def spectrum_to_df(spectrum: Dict,
         df = df.add_suffix(f"_{suffix}")
     return df
 
-    
 
-def write_results_xlsx(spectra : List[Dict],
+def get_results_dfs(spectra : List[Dict],
                        metrics : Dict, parent_mz : float,
                        quasi_x : float, quasi_y : float, 
-                       out_excel_file : str,
                        parent_formula : str = None,
-                       suffixes : List[str] = ['A', 'B']) -> None:
+                       suffixes : List[str] = ['A', 'B']) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, pd.DataFrame]]:
     polarity = get_spectrum_polarity(spectra[0])
     df_stats = create_stats_df(metrics, parent_mz, quasi_x, quasi_y, polarity, parent_formula)
-    
     df_intersection = clean_aligned_df(pd.DataFrame(metrics['Intersection']['df']), 'Intersection')
     df_union = clean_aligned_df(pd.DataFrame(metrics['Union']['df']), 'Union')
-    spectra_df = [spectrum_to_df(spectrum, suffix) for spectrum, suffix in zip(spectra, suffixes)]
-    for i_sdf, sdf in enumerate(spectra_df):
-        suffix = suffixes[i_sdf]
-        spectra_df[i_sdf] = sdf.rename(columns={f'I_{suffix}' : f'I_{suffix} (raw intensity)'})
+    spectra_df = {suffix : spectrum_to_df(spectrum, suffix) for spectrum, suffix in zip(spectra, suffixes)}
+    for suffix, sdf in spectra_df.items():
+        sdf = sdf.rename(columns={f'I_{suffix}' : f'I_{suffix} (raw intensity)'})
+    return df_stats, df_intersection, df_union, spectra_df
 
+
+def write_results_xlsx(out_excel_file : str, df_stats : pd.DataFrame, df_intersection : pd.DataFrame, 
+                       df_union : pd.DataFrame, spectra_df : List[pd.DataFrame]) -> None:
     writer = pd.ExcelWriter(out_excel_file, engine='xlsxwriter')
     df_stats.to_excel(writer, sheet_name='Stats')
     df_intersection.to_excel(writer, sheet_name='Spectra_Intersection', index=False)
     df_union.to_excel(writer, sheet_name='Spectra_Union', index=False)
-    for i_sdf, sdf in enumerate(spectra_df):
-        suffix = suffixes[i_sdf]
-        sdf.to_excel(writer, sheet_name=f'Spectrum_{suffix}_Raw', index=False)
+    for suffix, sdf in spectra_df.items():
+        sdf.to_excel(writer, sheet_name=f'Spectrum_{suffix}', index=False)
     writer.close()
+
+#####################################################
+# Plotting
+#####################################################
+
+def make_side_text(df_stats : pd.DataFrame, join_type : Literal['Intersection', 'Union'],
+                   text_map : Dict[str, str] = {
+                        'Parent Formula' : 'Parent formula',
+                       'Parent m/z' : 'Precursor m/z',
+                       'M' : 'M',
+                       "p-val (D^2)" : "pval_D^2",
+                        "p-val (G^2)" : "pval_G^2",
+                        "s_A (quasi)" : "S_A (quasicounts)",
+                        "s_B (quasi)" : "S_B (quasicounts)",
+                        "H(p_A)" : "Entropy_A",
+                        "H(p_B)" : "Entropy_B",
+                        "PP(p_A)" : "Perplexity_A",
+                        "PP(p_B)" : "Perplexity_B",
+                        "cos(p_A, p_B)" : "Cosine Similarity",
+                        "JSD(p_A, p_B)" : "JSD"
+                   }) -> str:
+    join_metrics = df_stats[join_type].dropna().to_dict()
+    side_text = ""
+    for k, v in text_map.items():
+        if v not in join_metrics and v in df_stats['Union'].index:
+                join_metrics[v] = df_stats['Union'].loc[v]
+        if v in join_metrics:
+            text_val = join_metrics[v]
+            if isinstance(text_val, float) and v not in [text_map['Parent m/z'], 'M']:
+                side_text += f"{k} : {text_val:.2e}\n"
+            elif v == 'M':
+                side_text += f"{k} {join_type} : {int(text_val)}\n"
+            elif v == text_map['Parent m/z']:
+                side_text += f"{k} : {text_val:.5f}\n"
+            else:
+                side_text += f"{k} : {join_metrics[v]}\n"
+        else:
+             logging.warning(f"Key {v} not found in {join_type} dataframe")
+    if join_type == "Intersection":
+        side_text += f"Jaccard : {df_stats['Union'].loc['Jaccard']:.2e}\n"
+    return side_text
+    
+def plot_result(out_file : str, plot_title : str, df_stats,
+                mzs_a : List[float],
+                mzs_b : List[float],
+                intensities_a : List[float],
+                intensities_b : List[float],
+                gray_mzs_a : List[float] = None,
+                gray_mzs_b : List[float] = None,
+                gray_intensities_a : List[float] = None,
+                gray_intensities_b : List[float] = None,
+                label_x : str = 'm/z',
+                label_y : str = 'Intensity',
+                join_type = Literal['Intersection', 'Union'],
+                normalize : bool = True,
+                suffixes : List[str] = ['A', 'B']):
+    
+    side_text = make_side_text(df_stats, join_type)
+    if gray_mzs_a is not None:
+        if gray_mzs_b is None or gray_intensities_a is None or gray_intensities_b is None:
+            raise ValueError("If gray spectra data are provided, all must be provided")
+        fig, ax = plotUtils.mirrorPlot(mzs_a=gray_mzs_a,
+                                       mzs_b=gray_mzs_b,
+                                       intensities_a=gray_intensities_a,
+                                       intensities_b=gray_intensities_b, 
+                                       formulas_a=None,
+                                       formulas_b=None,
+                                       normalize=normalize,
+                                       sideText = None,
+                                       overrideColor = "gray")
+    else:
+        fig, ax = plt.subplots(figsize = (12,9))
+    plotUtils.mirrorPlot(mzs_a = mzs_a,
+                            mzs_b = mzs_b,
+                            intensities_a = intensities_a,
+                            intensities_b = intensities_b,
+                            formulas_a = None,
+                            formulas_b = None,
+                            normalize = normalize,
+                            rotation = 90,
+                            sideText = side_text,
+                            fig = fig,
+                            ax = ax)
+    ax.set_xlim([0, ax.get_xlim()[1]])
+    ylim = ax.get_ylim()
+    xlim = ax.get_xlim()
+    ylimMax = max([abs(x) for x in ylim])
+    ylimRange = ylim[1] - ylim[0]
+    plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), ylimMax - ( 0.050 * ylimRange ), f"{join_type}:", fontsize = 20)
+    plt.text(xlim[0] + ( ( xlim[1] - xlim[0] ) *  0.01 ), ylimMax - ( .03 * ylimRange ), f"Spectrum {suffixes[0]}", fontsize = 15, fontfamily = 'DejaVu Sans')
+    plt.text(xlim[0] + ( ( xlim[1] - xlim[0] ) *  0.01 ), -ylimMax + ( .03 * ylimRange ), f"Spectrum {suffixes[1]}", fontsize = 15, fontfamily = 'DejaVu Sans')
+    plt.title(f"{plot_title}")
+    plt.ylabel(label_y)
+    plt.xlabel(label_x)
+    plt.savefig(out_file, bbox_inches = 'tight')
+    plt.close()
+logger.setLevel(logging.INFO)
+
+def summary_plots(df_stats, df_intersection, df_union, gray_spectra, suffixes : List[str] = ['A', 'B'], log_plots = True):
+    log_transforms = [False, True] if log_plots else [False]
+    for join_type, df_plot in zip(['Intersection', 'Union'], [df_intersection, df_union]):
+        for log_transform in log_transforms:
+            out_name = f"/Users/gkreder/Downloads/test_{join_type}{'_log' if log_transform else ''}_plot.svg"
+            suffix_1, suffix_2 = suffixes
+            file_suffix_1, file_suffix_2 = [os.path.splitext(os.path.basename(x))[0] for x in [mzml_1, mzml_2]]
+            plot_title = f"{file_suffix_1} Scan {index_1} ({suffix_1}) vs.\n {file_suffix_2} Scan {index_2} ({suffix_2}) [{join_type}]"
+            mzs_a = df_plot['m/z_A']
+            mzs_b = df_plot['m/z_B']
+            ints_a = np.log10(df_plot['a (quasicounts)']) if log_transform else df_plot['a (quasicounts)']
+            ints_b = np.log10(df_plot['b (quasicounts)']) if log_transform else df_plot['b (quasicounts)']
+            gray_mzs_a = gray_spectra[0]['m/z array']
+            gray_mzs_b = gray_spectra[1]['m/z array']
+            gray_intensities_a = np.log10(gray_spectra[0]['quasi array']) if log_transform else gray_spectra[0]['quasi array']
+            gray_intensities_b = np.log10(gray_spectra[1]['quasi array']) if log_transform else gray_spectra[1]['quasi array']
+            gray_plot_data = {"gray_mzs_a" : gray_mzs_a if log_plots else None, 
+                              "gray_mzs_b" : gray_mzs_b if log_plots else None,
+                              "gray_intensities_a" : gray_intensities_a if log_plots else None,
+                              "gray_intensities_b" : gray_intensities_b if log_plots else None,
+                              }
+
+            plot_result(
+                out_file=out_name, 
+                plot_title=plot_title,
+                df_stats=df_stats,
+                mzs_a=mzs_a,
+                mzs_b=mzs_b,
+                intensities_a=ints_a,
+                intensities_b=ints_b,
+                **gray_plot_data,
+                label_x = 'm/z',
+                label_y = 'Relative intensity (quasicounts)',
+                join_type = join_type,
+                suffixes = suffixes,)
 
 
 

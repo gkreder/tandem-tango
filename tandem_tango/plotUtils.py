@@ -127,7 +127,8 @@ def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, f
     ylim = ax.get_ylim()
     xlim = ax.get_xlim()
     if sideText != None:
-        plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), - ( ( ylim[1] - ylim[0] ) *  0.075 ), sideText, fontfamily = fontfamily)
+        # plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), - ( ( ylim[1] - ylim[0] ) *  0.075 ), sideText, fontfamily = fontfamily)
+        plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), 0.93, sideText, fontfamily = fontfamily, verticalalignment='top')
 
 
 
