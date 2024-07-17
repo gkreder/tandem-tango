@@ -134,7 +134,7 @@ def filter_spectrum_parent_mz(spectrum : Dict, parent_mz : float, match_acc : fl
 def filter_spectrum_peak_exclusion(spectrum : Dict, exclude_peaks : List[float], match_acc : float, keep_exact = False, filter_keys : List[str] = ['intensity array', 'm/z array', 'quasi array']) -> Dict:
     """Filter a spectrum along the given filter keys excluding fragments with the given m/zs
     The keep_exact flag allows for keeping the exact m/zs in the exclusion list, throwing away only close hits"""
-    logging.debug(f"Filtering spectrum by peak exclusion {exclude_peaks} with match accuracy of {match_acc}")
+    logging.debug(f"Filtering spectrum by peak exclusion {exclude_peaks} (keep_exact={keep_exact}) with match accuracy of {match_acc}")
     out_spectrum = copy.deepcopy(spectrum)
     peak_exclusion_array = np.array(exclude_peaks)
     filter = ~np.any(np.abs(spectrum['m/z array'][:, None] - peak_exclusion_array) <= match_acc, axis=1)
@@ -238,9 +238,15 @@ def merge_spectra(s1 : Dict, s2 : Dict, tolerance : float,
                        tolerance = tolerance,
                        on = jk,
                        suffixes = [f'_{x}' for x in suffixes],
-                       direction = direction).drop(columns = jk)
+                       direction = direction)
+    for i_suf, suf in enumerate(suffixes):
+        dft = dfs[i_suf]
+        dfRem = dft[~dft[jk].isin(df[f'{keys[join_key]}_{suf}'])].rename(columns = {x : f"{x}_{suf}" for x in keys.values()})
+        df = pd.concat([df, dfRem])
+    df = df.drop(columns = jk).reset_index(drop = True)
     cols_sorted = [f"{k}_{x}" for k in keys.values() for x in suffixes]
-    return pd.DataFrame(df[cols_sorted])
+    merged_spectra = pd.DataFrame(df[cols_sorted])
+    return merged_spectra
 
 
 #####################################################
@@ -330,7 +336,7 @@ def calc_join_metrics(merged_spectrum : pd.DataFrame, join_type : Literal['Union
 
     metrics = {}
     metrics['M'] = dfC.shape[0]
-    metrics.update({f"S_{s} {keys[k]}" : merged_spectrum[f"{k}_{s}"].sum() for k in keys.keys() for s in suffixes})
+    metrics.update({f"S_{s} {keys[k]}" : dfC[f"{k}_{s}"].sum() for k in keys.keys() for s in suffixes})
     
 
 
@@ -445,6 +451,7 @@ def create_stats_df(metrics: Dict,
                     parent_mz: float,
                     quasi_x: float,
                     quasi_y: float,
+                    polarity : str,
                     parent_formula: str = None) -> pd.DataFrame:
 
     df_stats = pd.DataFrame({'Union' : metrics['Union']['metrics'], 'Intersection' : metrics['Intersection']['metrics']})
@@ -460,6 +467,9 @@ def create_stats_df(metrics: Dict,
 
     index_vals.append('Precursor m/z')
     union_col_vals.append(parent_mz)
+
+    index_vals.append('Polarity')
+    union_col_vals.append(polarity)
 
     if quasi_y == 0.0:
         quasi_str = f"{quasi_x}"
@@ -507,9 +517,8 @@ def write_results_xlsx(spectra : List[Dict],
                        out_excel_file : str,
                        parent_formula : str = None,
                        suffixes : List[str] = ['A', 'B']) -> None:
-    df_stats = create_stats_df(metrics, parent_mz, quasi_x, quasi_y, parent_formula)
     polarity = get_spectrum_polarity(spectra[0])
-    df_stats.at['Polarity', 'Union'] = polarity
+    df_stats = create_stats_df(metrics, parent_mz, quasi_x, quasi_y, polarity, parent_formula)
     
     df_intersection = clean_aligned_df(pd.DataFrame(metrics['Intersection']['df']), 'Intersection')
     df_union = clean_aligned_df(pd.DataFrame(metrics['Union']['df']), 'Union')
