@@ -96,9 +96,9 @@ def mirror_plot(mzs_a, mzs_b, intensities_a, intensities_b, formulas_a=None, for
     label_cutoff = 10
     texts = []
 
-    if np.all(formulas_a) is None:
+    if np.all(formulas_a) is None or formulas_a is None:
         formulas_a = [None for x in mzs_a]
-    if np.all(formulas_b) is None:
+    if np.all(formulas_b) is None or formulas_b is None:
         formulas_b = [None for x in mzs_b]
     package_a = sorted(zip(mzs_a, intensities_a, formulas_a), key=lambda x: x[1], reverse=True)
     package_b = sorted(zip(mzs_b, intensities_b, formulas_b), key=lambda x: x[1], reverse=True)

@@ -21,7 +21,7 @@ snakemake = ">=8.16.0,<8.17"
 ipdb = ">=0.13.13,<0.14"
 
 [pypi-dependencies]
-pyteomics = "*"
-xlsxwriter = "*"
-adjusttext = "*"
-prefect = "*"
+pyteomics = ">=4.7.2"
+xlsxwriter = ">=3.2.0 "
+adjusttext = ">=1.2.0"
+prefect = "==2.16.3"
