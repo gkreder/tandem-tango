@@ -65,7 +65,7 @@ def get_parser():
     parser.add_argument("--log_filename", default = "spectrum_matching.log", type = str, help = "Name of the log file (saved to output directory)")
     parser.add_argument("--out_prefix", default = "spectrum_comparison", type = str, help = "Prefix to append to output files")
     parser.add_argument("--starting_index", default = 0, type = int, help = "The starting index (first spectrum) of the mzML file. This is 1 for Agilent-generated mzML files")
-    parser.add_argument("--gain_control", default = False, action = "store_true", help = "If True, perform gain control adjustment")
+    parser.add_argument("--gain_control", default = False, type = bool, help = "If True, perform gain control adjustment")
     parser.add_argument("--log_plots", default = True, type = bool, help = "If True, create log intensity plots")
     parser.add_argument("--join_types", type = join_types_input, default = ["Intersection", "Union"], help = "Comma-separated list of types of spectrum joins to perform - (e.g. Intersection, Union)")
     parser.add_argument("--suffixes", type = suffix_input, default = ['A', 'B'], help = "Comma-separated list of suffixes for the spectra (e.g. A,B treats the first spectrum as spectrum 'A' and the second as spectrum 'B')")
@@ -99,7 +99,7 @@ def run_matching(parent_mz : float, mzml_1 : str, mzml_2 : str,
                  rel_cutoff : float = None, quasi_cutoff : float = None,
                  min_total_peaks : int = None, min_spectrum_quasi_sum : float = None,
                  exclude_peaks : List[float] = None, predefined_peaks : List[float] = None,
-                 du_min : float = -0.5):
+                 du_min : float = -0.5, log_filename : str = None, verbosity : int = logging.INFO):
     
     # Set internal function parameters based on R
     match_acc = 100.0 / R
@@ -107,6 +107,10 @@ def run_matching(parent_mz : float, mzml_1 : str, mzml_2 : str,
     subformula_tolerance = 100.0 / R
 
     os.makedirs(out_dir, exist_ok = True)
+    if log_filename is not None:
+        logging_handlers = [logging.FileHandler(os.path.join(out_dir, log_filename), mode='w')]
+        logging.basicConfig(level=verbosity, format='%(asctime)s - %(levelname)s - %(message)s',
+                                handlers=logging_handlers)
     logging.info("Reading spectra")
     spectra = get_spectra_by_indices([mzml_1, mzml_2], [index_1 - starting_index, index_2 - starting_index], gain_control)
     logging.info("Validating that spectra are valid and usable")

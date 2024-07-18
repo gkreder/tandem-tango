@@ -6,6 +6,8 @@ from typing import List, Dict, Literal
 import logging
 
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')  # Use the 'Agg' backend for non-interactive plotting in larger workflows
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 import pandas as pd

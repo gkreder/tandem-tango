@@ -17,8 +17,11 @@ more-itertools = ">=10.3.0,<10.4"
 cvxpy = ">=1.5.2,<1.6"
 pandas = ">=2.2.2,<2.3"
 seaborn = ">=0.13.2,<0.14"
+snakemake = ">=8.16.0,<8.17"
+ipdb = ">=0.13.13,<0.14"
 
 [pypi-dependencies]
 pyteomics = "*"
 xlsxwriter = "*"
 adjusttext = "*"
+prefect = "*"
