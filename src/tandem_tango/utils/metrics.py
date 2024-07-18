@@ -1,3 +1,6 @@
+#####################################################
+# gk@reder.io
+#####################################################
 import warnings
 from typing import List, Dict, Literal
 import logging
@@ -13,6 +16,8 @@ from tandem_tango.utils import formula_utils
 #####################################################
 
 def H(x):
+    if np.sum(x) == 0:
+        return 0
     h = -1 * np.sum( x * ( np.log(x) ) )
     return(h)
 

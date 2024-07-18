@@ -1,3 +1,6 @@
+#####################################################
+# gk@reder.io
+#####################################################
 
 import logging
 from typing import List, Dict
@@ -218,6 +221,7 @@ def merge_spectra(s1 : Dict, s2 : Dict, tolerance : float,
                 join_key : str = 'm/z array') -> pd.DataFrame:
     """Takes two spectra and merges them into a single DataFrame based on the join_key and match tolerance.
     Spectra are sorted by join_key before merging."""
+
     logging.debug(f"Merging spectra with tolerance {tolerance} using direction {direction} and join key {join_key}")
     # Add extra join key column for merging
     jk = f"{join_key}_join"

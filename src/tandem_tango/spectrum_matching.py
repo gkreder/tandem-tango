@@ -53,7 +53,7 @@ def get_parser():
     parser.add_argument("--index_2", required = True, type = int, help = "Index of the spectrum in mzML file 2")
     parser.add_argument("--quasi_x", required = True, type = float, help = "The quasicount scaling function x value")
     parser.add_argument("--quasi_y", required = True, type = float, help = "The quasicount scaling function y value")
-    parser.add_argument("--R", required = True, type = float, help = "The R parameter (match_accuracy = 100.0/R, resolution_clearance = 200.0/R, subformula_tolerance = 100.0/R)")
+    parser.add_argument("--R", required = True, type = float, help = "The resolution parameter (match_accuracy = 100.0/R, resolution_clearance = 200.0/R, subformula_tolerance = 100.0/R)")
     parser.add_argument("--out_dir", required = True, type = str, help = "Output directory")
     
     # Parent formula is optional but recommended
