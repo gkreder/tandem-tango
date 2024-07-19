@@ -17,6 +17,7 @@ from tandem_tango.utils import formula_utils
 
 def H(x : np.array):
     """Auxiliary function for calculating spectrum entropy"""
+    # jrajniak
     if np.sum(x) == 0:
         return 0
     h = -1 * np.sum( x * ( np.log(x) ) )
@@ -26,6 +27,7 @@ def calc_G2(a_i : np.array, b_i : np.array, S_A : float, S_B : float, M : int):
         """Calculates the G statistic for two spectra given their intensities (a_i, b_i) and quasi-count sums (S_A, S_B)"""
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
+            # jrajniak
             t1 = ( a_i + b_i ) * np.log( ( a_i + b_i ) / ( S_A + S_B ) ).apply(lambda x : 0 if np.isinf(x) else x)
             t2 = a_i * np.log(a_i / S_A).apply(lambda x : 0 if np.isinf(x) else x)
             t3 = b_i * np.log(b_i / S_B).apply(lambda x : 0 if np.isinf(x) else x)
@@ -37,8 +39,10 @@ def calc_D2(a_i : np.array, b_i : np.array, S_A : float, S_B : float, M : int):
         """Calculates the D^2 (chi-square) statistic for two spectra given their intensities (a_i, b_i) and quasi-count sums (S_A, S_B)"""
         num = np.power( ( S_B * a_i )  - ( S_A * b_i ) , 2) 
         denom = a_i + b_i
+        # jrajniak
+        if denom.sum() == 0 or S_A == 0 or S_B == 0:
+            return 0.0, 1.0 # chi-sq = 0, p-val = 1
         D2 = np.sum(num  / denom) / (S_A * S_B)
-        
         pval_D2 = scipy.stats.chi2.sf(D2, df = M - 1)
         return(D2, pval_D2)
 
@@ -63,6 +67,10 @@ def cosine_distance(p_Ai : np.array, p_Bi : np.array):
     """Calculates the cosine distance between two spectra given their normalized intensities (p_Ai, p_Bi)"""
     num = (p_Ai * p_Bi).sum()
     denom = sqf(p_Ai) * sqf(p_Bi)
+    # jrajniak
+    # The maximum possible cosine distance
+    if denom == 0:
+        return 2.0
     csd = num / denom
     return csd
 

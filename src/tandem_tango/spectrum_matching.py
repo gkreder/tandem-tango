@@ -13,7 +13,6 @@ from tandem_tango.utils.input_types import (
     peak_list_input,
     formula_input,
     logging_level_input,
-    join_types_input,
     suffix_input,
     bool_input
 )
@@ -48,10 +47,23 @@ def get_parser():
 
     # Required parameters
     parser.add_argument("--parent_mz", required = True, type = float, help = "Parent m/z value")
-    parser.add_argument("--mzml_1", required = True, type = str, help = "Path to mzML file 1")
-    parser.add_argument("--mzml_2", required = True, type = str, help = "Path to mzML file 2")
-    parser.add_argument("--index_1", required = True, type = int, help = "Index of the spectrum in mzML file 1")
-    parser.add_argument("--index_2", required = True, type = int, help = "Index of the spectrum in mzML file 2")
+
+    # Mutually exclusive input groups for the first spectrum
+    input_1 = parser.add_mutually_exclusive_group(required=True)
+    input_1.add_argument("--mzml_1", type = str, help = "Path to mzML file 1")
+    input_1.add_argument("--mgf_1", type = str, help = "Path to MGF file 1")
+    parser.add_argument("--index_1", required = True, type = int, help = "Index of the spectrum in mzML/mgf file 1")
+
+    # Mutually exclusive input groups for the second spectrum
+    input_2 = parser.add_mutually_exclusive_group(required=True)
+    input_2.add_argument("--mzml_2", type = str, help = "Path to mzML file 2")
+    input_2.add_argument("--mgf_2", type = str, help = "Path to MGF file 2")
+    parser.add_argument("--index_2", required = True, type = int, help = "Index of the spectrum in mzML/mgf file 2")
+
+    parser.add_argument("--starting_index_1", default = 0, type = int, help = "The starting index (first spectrum) of the first mzML/mgf file. This is 1 for Agilent-generated mzML files")
+    parser.add_argument("--starting_index_2", default = 0, type = int, help = "The starting index (first spectrum) of the second mzML/mgf file. This is 1 for Agilent-generated mzML files")
+
+    # Required parameters for spectrum matching
     parser.add_argument("--quasi_x", required = True, type = float, help = "The quasicount scaling function x value")
     parser.add_argument("--quasi_y", required = True, type = float, help = "The quasicount scaling function y value")
     parser.add_argument("--R", required = True, type = float, help = "The resolution parameter (match_accuracy = 100.0/R, resolution_clearance = 200.0/R, subformula_tolerance = 100.0/R)")
@@ -65,10 +77,8 @@ def get_parser():
     parser.add_argument("--log_file", default = True, type = bool_input, help = "If True, save log to file")
     parser.add_argument("--log_filename", default = "spectrum_matching.log", type = str, help = "Name of the log file (saved to output directory)")
     parser.add_argument("--out_prefix", default = "spectrum_comparison", type = str, help = "Prefix to append to output files")
-    parser.add_argument("--starting_index", default = 0, type = int, help = "The starting index (first spectrum) of the mzML file. This is 1 for Agilent-generated mzML files")
     parser.add_argument("--gain_control", default = False, type = bool_input, help = "If True, perform gain control adjustment")
     parser.add_argument("--log_plots", default = True, type = bool_input, help = "If True, create log intensity plots")
-    parser.add_argument("--join_types", type = join_types_input, default = ["Intersection", "Union"], help = "Comma-separated list of types of spectrum joins to perform - (e.g. Intersection, Union)")
     parser.add_argument("--suffixes", type = suffix_input, default = ['A', 'B'], help = "Comma-separated list of suffixes for the spectra (e.g. A,B treats the first spectrum as spectrum 'A' and the second as spectrum 'B')")
     parser.add_argument("--plot_prefixes", type = suffix_input, default = ['Spectrum 1', 'Spectrum 2'], help = "Comma-separated list of spectrum prefixes for plot titles")
     
@@ -86,15 +96,29 @@ def get_parser():
 
     return parser
 
+def prep_args(args : argparse.Namespace):
+    """Prepares the arguments for the spectrum matching function"""
+
+    # Get the input files and convert them to 'file' arguments instead of 'mzml'/'mgf'
+    input_files_all_formats = {k : v for k, v in vars(args).items() if k.startswith('mzml_') or k.startswith('mgf_')}
+    input_files = {f"file_{k.split('_')[-1]}" : v for k,v in input_files_all_formats.items() if v is not None}
+    if len(input_files) != 2:
+        raise ValueError("Exactly two input files must be specified")
+    modified_args_dict = {
+        **{k:v for k,v in vars(args).items() if k in inspect.signature(run_matching).parameters},
+        **input_files
+        }
+    return modified_args_dict
+
 ################################################################################
 # Main spectrum matching function
 ################################################################################
-def run_matching(parent_mz : float, mzml_1 : str, mzml_2 : str, 
+def run_matching(parent_mz : float, file_1 : str, file_2 : str, 
                  index_1 : int, index_2 : int, quasi_x : float,
                  quasi_y : float, R : float, out_dir : str, 
                  parent_formula : str = None, out_prefix : str = None, 
-                 starting_index : int = 0, gain_control : bool = False,
-                 log_plots : bool = True, join_types : List[str] = ['Intersection', 'Union'],
+                 starting_index_1 : int = 0, starting_index_2 : int = 0,
+                 gain_control : bool = False, log_plots : bool = True,
                  suffixes : List[str] = ['A', 'B'], plot_prefixes : List[str] = ['Spectrum 1', 'Spectrum 2'],
                  abs_cutoff : float = None,
                  rel_cutoff : float = None, quasi_cutoff : float = None,
@@ -113,7 +137,7 @@ def run_matching(parent_mz : float, mzml_1 : str, mzml_2 : str,
         logging.basicConfig(level=verbosity, format='%(asctime)s - %(levelname)s - %(message)s',
                                 handlers=logging_handlers)
     logging.info("Reading spectra")
-    spectra = get_spectra_by_indices([mzml_1, mzml_2], [index_1 - starting_index, index_2 - starting_index], gain_control)
+    spectra = get_spectra_by_indices([file_1, file_2], [index_1 - starting_index_1, index_2 - starting_index_2], gain_control)
     logging.info("Validating that spectra are valid and usable")
     validate_spectrum_pair(spectra)
     logging.info("Filtering and converting spectra")
@@ -136,7 +160,7 @@ def run_matching(parent_mz : float, mzml_1 : str, mzml_2 : str,
         try: 
             validate_spectrum_counts(spectrum, min_spectrum_quasi_sum, min_total_peaks)
         except SpectrumValidationError as e:
-            logging.error(f"Spectrum {[mzml_1, mzml_2][i_spectrum]} scan {[index_1, index_2][i_spectrum]} failed post-filtering validation:\n\t{e}")
+            logging.error(f"Spectrum {[file_1, file_2][i_spectrum]} scan {[index_1, index_2][i_spectrum]} failed post-filtering validation:\n\t{e}")
             sys.exit()
 
     logging.info("Merging spectra by m/z matching")
@@ -188,7 +212,8 @@ def main():
                             handlers=logging_handlers)
     args_str = '\n'.join([f"\t{k} : {v}" for k,v in vars(args).items()])
     logging.info(f"Args: {args_str}")
-    run_matching(**{k: v for k, v in vars(args).items() if k in inspect.signature(run_matching).parameters})
+    args_dict = prep_args(args)
+    run_matching(**args_dict)
 
 if __name__ == "__main__":
     main()

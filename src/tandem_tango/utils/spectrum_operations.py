@@ -1,13 +1,13 @@
 #####################################################
 # gk@reder.io
 #####################################################
-
+import os
 import logging
 from typing import List, Dict
 import copy
 
 import pandas as pd
-from pyteomics import mzml as pytmzml
+import pyteomics.mzml, pyteomics.mgf
 import numpy as np
 #####################################################
 # Spectrum Filtering, Cleaning, and Merging
@@ -16,11 +16,27 @@ class SpectrumValidationError(Exception):
     """Custom exception for spectrum validation errors"""
     pass
 
-def get_spectrum_by_index(mzml_file: str, spec_index: int, gain_control: bool = False):
-    """Get a spectrum by index from an mzML file"""
-    logging.debug(f"Getting spectrum {spec_index} from {mzml_file}")
-    reader = pytmzml.MzML(mzml_file)
-    spec = reader.get_by_index(spec_index)
+def get_spectrum_by_index(file_path : str, spec_index: int, gain_control: bool = False):
+    """Get a spectrum by index from an input file"""
+    logging.debug(f"Getting spectrum {spec_index} from {file_path}")
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+    ext = os.path.splitext(file_path)[1]
+    if ext.lower() not in ['.mzml', '.mgf']:
+        raise ValueError(f"Unsupported spectrum file extension: {ext}")
+    reader = {
+        '.mzml' : pyteomics.mzml.MzML,
+        '.mgf' : pyteomics.mgf.MGF
+    }[ext.lower()](file_path)
+
+    if ext.lower() == '.mzml':
+        spec = reader.get_by_index(spec_index)
+    elif ext.lower() == '.mgf':
+        for i, x in enumerate(reader):
+            if i == spec_index:
+                spec = x
+                break
+            raise ValueError(f"Could not find spectrum {spec_index} in {file_path}")
     reader.close()
     if gain_control:
         raise NotImplementedError("Gain control is not yet implemented for Pyteomics implementation")
@@ -35,10 +51,20 @@ def get_spectra_by_indices(mzml_files : List[str], spec_indices : List[int], gai
 
 def get_spectrum_polarity(spectrum : Dict) -> str:
     """Get the polarity of a spectrum using dictionary keys populated by Pyteomics"""
+    # For mzml files read by Pyteomics
     if 'negative scan' in spectrum.keys():
         return 'Negative'
     elif 'positive scan' in spectrum.keys():
         return 'Positive'
+    # For mgf files read by Pyteomics
+    elif 'params' in spectrum.keys() and 'charge' in spectrum['params'].keys():
+        charge_list = spectrum['params']['charge']
+        if [x > 0 for x in charge_list]:
+            return 'Positive'
+        elif [x < 0 for x in charge_list]:
+            return 'Negative'
+        else:
+            raise ValueError("Could not determine polarity of the mgf spectrum via Pyteomics")
     else:
         raise ValueError("Could not determine polarity of spectrum via Pyteomics")
     
@@ -46,8 +72,11 @@ def validate_spectrum_pair(spectra : List[Dict]) -> None:
     """Validate that a pair of spectra are the same polarity and are both MS2"""
     if len(set([get_spectrum_polarity(spec) for spec in spectra])) > 1:
         raise SpectrumValidationError("Spectra have different polarities")
-    if set([spec['ms level'] for spec in spectra]) != {2}:
-        raise SpectrumValidationError("Spectra are not both MS2")
+    if np.all(np.array(['ms level' in spec.keys() for spec in spectra])):
+        if set([spec['ms level'] for spec in spectra]) != {2}:
+            raise SpectrumValidationError("Spectra are not both MS2")
+    else:
+        logging.warning("Could not validate MS level of spectra - assuming both are MS2")
     
 def validate_spectrum_counts(spectrum : Dict, min_quasi_sum : float, min_total_peaks : int) -> None:
     """Validate that a spectrum has enough peaks and total quasi count sum"""
