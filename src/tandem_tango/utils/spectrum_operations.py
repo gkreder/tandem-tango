@@ -17,7 +17,7 @@ class SpectrumValidationError(Exception):
     pass
 
 def get_spectrum_by_index(mzml_file: str, spec_index: int, gain_control: bool = False):
-    """Get a spectrum by index from an mz file"""
+    """Get a spectrum by index from an mzML file"""
     logging.debug(f"Getting spectrum {spec_index} from {mzml_file}")
     reader = pytmzml.MzML(mzml_file)
     spec = reader.get_by_index(spec_index)
@@ -34,7 +34,7 @@ def get_spectra_by_indices(mzml_files : List[str], spec_indices : List[int], gai
     return spectra
 
 def get_spectrum_polarity(spectrum : Dict) -> str:
-    """Get the polarity of a spectrum"""
+    """Get the polarity of a spectrum using dictionary keys populated by Pyteomics"""
     if 'negative scan' in spectrum.keys():
         return 'Negative'
     elif 'positive scan' in spectrum.keys():
@@ -43,14 +43,14 @@ def get_spectrum_polarity(spectrum : Dict) -> str:
         raise ValueError("Could not determine polarity of spectrum via Pyteomics")
     
 def validate_spectrum_pair(spectra : List[Dict]) -> None:
-    """Validate that a pair of spectra are the same polarity and both MS2"""
+    """Validate that a pair of spectra are the same polarity and are both MS2"""
     if len(set([get_spectrum_polarity(spec) for spec in spectra])) > 1:
         raise SpectrumValidationError("Spectra have different polarities")
     if set([spec['ms level'] for spec in spectra]) != {2}:
         raise SpectrumValidationError("Spectra are not both MS2")
     
 def validate_spectrum_counts(spectrum : Dict, min_quasi_sum : float, min_total_peaks : int) -> None:
-    """Validate that a spectrum has enough peaks and quasi count sum"""
+    """Validate that a spectrum has enough peaks and total quasi count sum"""
     if len(spectrum['m/z array']) == 0:
         raise SpectrumValidationError("Spectrum has no peaks")
     if np.sum(spectrum['quasi array']) < min_quasi_sum:
@@ -58,14 +58,14 @@ def validate_spectrum_counts(spectrum : Dict, min_quasi_sum : float, min_total_p
     if len(spectrum['m/z array']) < min_total_peaks:
         raise SpectrumValidationError(f"Spectrum has too few peaks - {len(spectrum['m/z array'])}")
 
-def get_quasi_counts(spectrum : Dict, quasi_x : float, quasi_y : float) -> Dict:
+def get_quasi_counts(spectrum : Dict, quasi_x : float, quasi_y : float) -> np.array:
     """Returns the converted quasi counts for a given spectrum"""
     logging.debug(f"Converting spectrum intensities to quasicounts with x = {quasi_x} and y = {quasi_y}")
     quasi_counts = spectrum['intensity array'] / ( quasi_x *  ( np.power(spectrum['m/z array'], quasi_y) ) )
     return quasi_counts
 
 def sort_spectrum_intensity(spectrum : Dict, sort_fields : List[str] = ['intensity array', 'm/z array', 'quasi array']) -> Dict:
-    """Sort a spectrum by intensity"""
+    """Sort a spectrum by intensity (high to low)"""
     out_spectrum = copy.deepcopy(spectrum)
     sort_order = np.argsort(spectrum['intensity array'])[::-1]
     for key in sort_fields:
@@ -74,7 +74,7 @@ def sort_spectrum_intensity(spectrum : Dict, sort_fields : List[str] = ['intensi
     return out_spectrum
 
 def sort_spectrum_mz(spectrum : Dict, sort_fields : List[str] = ['intensity array', 'm/z array', 'quasi array']) -> Dict:
-    """Sort a spectrum by m/z"""
+    """Sort a spectrum by m/z (low to high)"""
     out_spectrum = copy.deepcopy(spectrum)
     sort_order = np.argsort(spectrum['m/z array'])
     for key in sort_fields:
@@ -124,8 +124,8 @@ def filter_spectrum_parent_mz(spectrum : Dict, parent_mz : float, match_acc : fl
     return out_spectrum
 
 def filter_spectrum_peak_exclusion(spectrum : Dict, exclude_peaks : List[float], match_acc : float, keep_exact = False, filter_keys : List[str] = ['intensity array', 'm/z array', 'quasi array']) -> Dict:
-    """Filter a spectrum along the given filter keys excluding fragments with the given m/zs
-    The keep_exact flag allows for keeping the exact m/zs in the exclusion list, throwing away only close hits"""
+    """Filter a spectrum along the given filter keys excluding fragments with the given m/z's within match_acc.
+    The keep_exact flag allows for keeping the exact m/zs in the exclusion list, throwing away only matches within match_acc"""
     logging.debug(f"Filtering spectrum by peak exclusion {exclude_peaks} (keep_exact={keep_exact}) with match accuracy of {match_acc}")
     out_spectrum = copy.deepcopy(spectrum)
     peak_exclusion_array = np.array(exclude_peaks)

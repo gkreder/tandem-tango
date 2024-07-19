@@ -15,6 +15,7 @@ from tandem_tango.utils.input_types import (
     logging_level_input,
     join_types_input,
     suffix_input,
+    bool_input
 )
 from tandem_tango.utils.spectrum_operations import (
     get_spectra_by_indices,
@@ -61,12 +62,12 @@ def get_parser():
     
     # Optional parameters involving logging, script behavior, and plotting
     parser.add_argument("--verbosity", default = logging.INFO, type = logging_level_input, help = "Logging verbosity")
-    parser.add_argument("--log_file", default = True, type = bool, help = "If True, save log to file")
+    parser.add_argument("--log_file", default = True, type = bool_input, help = "If True, save log to file")
     parser.add_argument("--log_filename", default = "spectrum_matching.log", type = str, help = "Name of the log file (saved to output directory)")
     parser.add_argument("--out_prefix", default = "spectrum_comparison", type = str, help = "Prefix to append to output files")
     parser.add_argument("--starting_index", default = 0, type = int, help = "The starting index (first spectrum) of the mzML file. This is 1 for Agilent-generated mzML files")
-    parser.add_argument("--gain_control", default = False, type = bool, help = "If True, perform gain control adjustment")
-    parser.add_argument("--log_plots", default = True, type = bool, help = "If True, create log intensity plots")
+    parser.add_argument("--gain_control", default = False, type = bool_input, help = "If True, perform gain control adjustment")
+    parser.add_argument("--log_plots", default = True, type = bool_input, help = "If True, create log intensity plots")
     parser.add_argument("--join_types", type = join_types_input, default = ["Intersection", "Union"], help = "Comma-separated list of types of spectrum joins to perform - (e.g. Intersection, Union)")
     parser.add_argument("--suffixes", type = suffix_input, default = ['A', 'B'], help = "Comma-separated list of suffixes for the spectra (e.g. A,B treats the first spectrum as spectrum 'A' and the second as spectrum 'B')")
     parser.add_argument("--plot_prefixes", type = suffix_input, default = ['Spectrum 1', 'Spectrum 2'], help = "Comma-separated list of spectrum prefixes for plot titles")
@@ -176,6 +177,7 @@ def run_matching(parent_mz : float, mzml_1 : str, mzml_2 : str,
 # For command line usage
 ################################################################################
 def main():
+    """Runs spectrum comparison from the command line using passed arguments"""
     parser = get_parser()
     args = parser.parse_args()
     os.makedirs(args.out_dir, exist_ok = True)

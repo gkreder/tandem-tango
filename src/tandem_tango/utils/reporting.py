@@ -8,7 +8,7 @@ import pandas as pd
 from tandem_tango.utils.spectrum_operations import get_spectrum_polarity
 
 #####################################################
-# Output and Reporting
+# Output file generation and reporting
 #####################################################
 
 def create_stats_df(metrics: Dict,
@@ -17,6 +17,7 @@ def create_stats_df(metrics: Dict,
                     quasi_y: float,
                     polarity : str,
                     parent_formula: str = None) -> pd.DataFrame:
+    """Create a DataFrame with the computed metrics of the comparison"""
 
     df_stats = pd.DataFrame({'Union' : metrics['Union']['metrics'], 'Intersection' : metrics['Intersection']['metrics']})
     union_col_vals = list(df_stats['Union'].values)
@@ -48,6 +49,7 @@ def create_stats_df(metrics: Dict,
 
 def clean_aligned_df(df : pd.DataFrame, join_type : Literal['Intersection', 'Union'],
                      suffixes : List[str] = ['A', 'B'], formula : bool = True) -> pd.DataFrame: 
+    """Cleans the aligned DataFrame and renames columns to a more readable format"""
        
     keep_cols = {'Formula' : 'Formula'} if formula else {}
     keep_cols.update({f'm/z_{suffix}' : f'm/z_{suffix}' for suffix in suffixes})
@@ -67,6 +69,7 @@ def spectrum_to_df(spectrum: Dict,
                           'm/z array' : 'm/z',
                           'intensity array' : 'I'
                    }) -> pd.DataFrame:
+    """Converts a spectrum dictionary to a DataFrame"""
     vals = [spectrum[col] for col in col_map.keys()]
     df = pd.DataFrame(dict(zip(col_map.values(), vals)))
     if suffix:
@@ -79,6 +82,7 @@ def get_results_dfs(spectra : List[Dict],
                        quasi_x : float, quasi_y : float, 
                        parent_formula : str = None,
                        suffixes : List[str] = ['A', 'B']) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, pd.DataFrame]]:
+    """Generates the report DataFrames with the results of the spectrum comparison"""
     polarity = get_spectrum_polarity(spectra[0])
     df_stats = create_stats_df(metrics, parent_mz, quasi_x, quasi_y, polarity, parent_formula)
     df_intersection = clean_aligned_df(pd.DataFrame(metrics['Intersection']['df']), 'Intersection', formula=(parent_formula is not None))
@@ -91,6 +95,7 @@ def get_results_dfs(spectra : List[Dict],
 
 def write_results_xlsx(out_excel_file : str, df_stats : pd.DataFrame, df_intersection : pd.DataFrame, 
                        df_union : pd.DataFrame, spectra_df : List[pd.DataFrame]) -> None:
+    """Writes the results of the comparison to an Excel file"""
     writer = pd.ExcelWriter(out_excel_file, engine='xlsxwriter')
     df_stats.to_excel(writer, sheet_name='Stats')
     df_intersection.to_excel(writer, sheet_name='Spectra_Intersection', index=False)

@@ -5,6 +5,8 @@ import os
 from typing import List, Dict, Literal
 import logging
 
+import matplotlib.axes
+import matplotlib.figure
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')  # Use the 'Agg' backend for non-interactive plotting in larger workflows
@@ -18,8 +20,14 @@ from adjustText import adjust_text
 # Base plotting functions
 #####################################################
 
-def single_plot(mzs, intensities, formulas=None, normalize=True, rotation=90, 
-               side_text=None, fontfamily="DejaVu Sans", fig=None, ax=None, override_color=None, linewidth=None, alpha=None):
+def single_plot(mzs : List[float], intensities : List[float], 
+                formulas : List[str] = None, normalize : bool = True, rotation : float = 90.0, 
+               side_text : str = None, fontfamily : str = "DejaVu Sans",
+               fig : matplotlib.figure.Figure = None, 
+               ax : matplotlib.axes.Axes = None,
+               override_color : str = None,
+               linewidth : float = None, alpha : float = None):
+    """Plots a single MS2 spectrum with optional formula labels"""
     plt.rcParams['font.size'] = 16
     if fig is None and ax is None:
         fig, ax = plt.subplots(figsize=(12, 9))
@@ -66,8 +74,15 @@ def single_plot(mzs, intensities, formulas=None, normalize=True, rotation=90,
         plt.ylabel('Intensity')
     return(fig, ax, vlines)
 
-def mirror_plot(mzs_a, mzs_b, intensities_a, intensities_b, formulas_a=None, formulas_b=None, normalize=True, rotation=90, 
-               side_text=None, fontfamily="DejaVu Sans", fig=None, ax=None, override_color=None):
+def mirror_plot(mzs_a : List[float], mzs_b : List[float],
+                intensities_a : List[float], intensities_b : List[float], 
+                formulas_a : List[str] = None, formulas_b : List[str] = None,
+                normalize : bool = True, rotation : float = 90.0, 
+               side_text : str = None, fontfamily : str = "DejaVu Sans",
+               fig : matplotlib.figure.Figure = None,
+               ax : matplotlib.axes.Axes = None, 
+               override_color : str = None):
+    """Plots two MS2 spectra in mirror-plot configuration with optional formula labels"""
     plt.rcParams['font.size'] = 16
     if fig is None and ax is None:
         fig, ax = plt.subplots(figsize=(12, 9))
@@ -148,6 +163,7 @@ def make_side_text(df_stats : pd.DataFrame, join_type : Literal['Intersection', 
                         "cos(p_A, p_B)" : "Cosine Similarity",
                         "JSD(p_A, p_B)" : "JSD"
                    }) -> str:
+    """Creates a side text string for the plot based on the passed dataframe and join_type"""
     join_metrics = df_stats[join_type].dropna().to_dict()
     side_text = ""
     for k, v in text_map.items():
@@ -183,6 +199,7 @@ def plot_result(out_file : str, plot_title : str, df_stats,
                 join_type = Literal['Intersection', 'Union'],
                 normalize : bool = True,
                 suffixes : List[str] = ['A', 'B']):
+    """Plots a spectrum comparison result with optional gray spectra fragments in the background"""
     
     side_text = make_side_text(df_stats, join_type)
     if gray_mzs_a is not None:
@@ -232,6 +249,7 @@ def summary_plots(df_stats, df_intersection, df_union, gray_spectra,
                   out_dir : str = '', 
                   verbosity : int = logging.INFO,
                   logger : logging.Logger = logging.getLogger()):
+    """Generates summary plots for the passed dataframes and spectra"""
     log_transforms = [False, True] if log_plots else [False]
     for join_type, df_plot in zip(['Intersection', 'Union'], [df_intersection, df_union]):
         for log_transform in log_transforms:

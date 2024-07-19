@@ -12,16 +12,18 @@ import pandas as pd
 from tandem_tango.utils import formula_utils
 
 #####################################################
-# Metrics and Calculations
+# Metrics and Calculations for spectrum comparison
 #####################################################
 
-def H(x):
+def H(x : np.array):
+    """Auxiliary function for calculating spectrum entropy"""
     if np.sum(x) == 0:
         return 0
     h = -1 * np.sum( x * ( np.log(x) ) )
     return(h)
 
-def calc_G2(a_i, b_i, S_A, S_B, M):
+def calc_G2(a_i : np.array, b_i : np.array, S_A : float, S_B : float, M : int):
+        """Calculates the G statistic for two spectra given their intensities (a_i, b_i) and quasi-count sums (S_A, S_B)"""
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
             t1 = ( a_i + b_i ) * np.log( ( a_i + b_i ) / ( S_A + S_B ) ).apply(lambda x : 0 if np.isinf(x) else x)
@@ -31,7 +33,8 @@ def calc_G2(a_i, b_i, S_A, S_B, M):
             pval_G2 = scipy.stats.chi2.sf(G2, df = M - 1)
         return(G2, pval_G2)
 
-def calc_D2(a_i, b_i, S_A, S_B, M):
+def calc_D2(a_i : np.array, b_i : np.array, S_A : float, S_B : float, M : int):
+        """Calculates the D^2 (chi-square) statistic for two spectra given their intensities (a_i, b_i) and quasi-count sums (S_A, S_B)"""
         num = np.power( ( S_B * a_i )  - ( S_A * b_i ) , 2) 
         denom = a_i + b_i
         D2 = np.sum(num  / denom) / (S_A * S_B)
@@ -39,7 +42,8 @@ def calc_D2(a_i, b_i, S_A, S_B, M):
         pval_D2 = scipy.stats.chi2.sf(D2, df = M - 1)
         return(D2, pval_D2)
 
-def calc_SR(a_i, b_i, S_A, S_B):
+def calc_SR(a_i : np.array, b_i : np.array, S_A : float, S_B : float):
+    """Calculates the Standardized Residual (SR) for two spectra given their intensities (a_i, b_i) and quasi-count sums (S_A, S_B)"""
     num = ( S_B * a_i ) - ( S_A * b_i )
     denom = np.sqrt(S_A * ( S_A + S_B ) * ( a_i + b_i ))
     SR_ai = num / denom
@@ -51,33 +55,37 @@ def calc_SR(a_i, b_i, S_A, S_B):
     return((SR_ai, SR_bi))
 
 # Cosine Distance
-def sqF(x):
+def sqf(x : np.array):
+    """Auxiliary function for calculating cosine distance"""
     return(np.sqrt( np.power( x, 2 ).sum() ) )
 
-def cosine_distance(p_Ai, p_Bi):
+def cosine_distance(p_Ai : np.array, p_Bi : np.array):
+    """Calculates the cosine distance between two spectra given their normalized intensities (p_Ai, p_Bi)"""
     num = (p_Ai * p_Bi).sum()
-    denom = sqF(p_Ai) * sqF(p_Bi)
+    denom = sqf(p_Ai) * sqf(p_Bi)
     csd = num / denom
     return csd
 
 def jensen_shanon_distance(p_Ai, p_Bi, H_pA, H_pB):
+    """Calculates the Jensen-Shannon divergence between two spectra given their normalized intensities (p_Ai, p_Bi) and entropies (H_pA, H_pB)"""
     jsd = H( ( 0.5 * ( p_Ai.fillna(0.0) + p_Bi.fillna(0.0) ) ) ) - ( 0.5 * H_pA ) - ( 0.5 *  H_pB  )
     return jsd
 
 
 def calc_row_metrics(row : pd.Series, quasi_sums : List[float], M : int, join_type : Literal['Union', 'Intersection'],
                      suffixes : List[str] = ['A', 'B']):
+        """Calculates the comparison metrics for a single row of a merged spectrum given a join type (intersection or union)"""
         quasi_intensities = [row[f"quasi_{s}"] for s in suffixes] # a_i and b_i
         if np.isnan(quasi_intensities).any() and (join_type == 'Intersection'):
             return None
         quasi_intensities_series = [pd.Series([x]) for x in quasi_intensities]
+        # Calculation of D^2, G^2, and Standardized Residuals (SRs)
         D2, _ = calc_D2(*[x.fillna(0.0) for x in quasi_intensities_series],
                          *quasi_sums,
                          M)
         G2, _ = calc_G2(*[x.fillna(0.0) for x in quasi_intensities_series],
                          *quasi_sums,
                          M)
-         # Calculate Standardized Residual (SR)
         SRs = calc_SR(*[x.fillna(0.0) for x in quasi_intensities_series],
                                *quasi_sums)
         SRs = [x.values[0] for x in SRs]
@@ -90,20 +98,21 @@ def calc_join_metrics(merged_spectrum : pd.DataFrame, join_type : Literal['Union
                                         'intensity' : '(raw)',},
                ):
     """Calculates the comparison metrics for two merged spectra given a join type (intersection or union)"""
-    # Create a temporary DataFrame on which to calculate comparison statistics
     logging.debug(f"Calculating join metrics for {join_type} join")
+    # Create a temporary DataFrame on which to calculate comparison statistics
     if join_type == "Union":
         dfC = merged_spectrum.copy()
     elif join_type == "Intersection":
         drop_subset = [f"m/z_{s}" for s in suffixes]
         dfC = merged_spectrum.dropna(subset = drop_subset).copy()
 
+    # M is the number of fragments in the merged spectrum
     metrics = {}
     metrics['M'] = dfC.shape[0]
+    # Calculate the sum of the intensities for each spectrum
     metrics.update({f"S_{s} {keys[k]}" : dfC[f"{k}_{s}"].sum() for k in keys.keys() for s in suffixes})
-    
 
-
+    # Calculate the sum of the quasi-counts for each spectrum
     quasi_intensities = [dfC[f"quasi_{s}"] for s in suffixes] # a_i and b_i
     quasi_sums = [dfC[f"quasi_{s}"].sum() for s in suffixes] # S_A and S_B
 
@@ -123,11 +132,11 @@ def calc_join_metrics(merged_spectrum : pd.DataFrame, join_type : Literal['Union
     metrics['G^2'] = G2
     metrics['pval_G^2'] = pval_G2
 
-
-    ps = [quasi_intensities[i] / quasi_sums[i] for i in range(len(suffixes))] # p_Ai and p_Bi
+    # p_Ai and p_Bi
+    ps = [quasi_intensities[i] / quasi_sums[i] for i in range(len(suffixes))] 
 
     
-
+    # Entropy and Perplexity
     entropies = [H(p) for p in ps] # H_A and H_B
     metrics.update({f"Entropy_{s}" : e for s, e in zip(suffixes, entropies)})
     perplexities = [np.exp(h) for h in entropies] # Perplexity_A and Perplexity_B
@@ -142,13 +151,13 @@ def calc_join_metrics(merged_spectrum : pd.DataFrame, join_type : Literal['Union
     csd = cosine_distance(*ps)
     metrics['Cosine Similarity'] = csd
 
-
+    # Create columns for the individual row metrics that will be filled in the next step
     dfC[f"D^2_{join_type}"] = None
     dfC[f"G^2_{join_type}"] = None
     dfC[f"SR_A_{join_type}"] = None
     dfC[f"SR_B_{join_type}"] = None
 
-
+    # Calculate the metrics for each row in the merged spectrum
     for i_row, row in dfC.iterrows():
          row_res = calc_row_metrics(row, quasi_sums, metrics['M'], join_type)
          if row_res is not None:

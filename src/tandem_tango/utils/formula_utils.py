@@ -1,16 +1,21 @@
-#####################################################
+################################################################################
 # gk@reder.io
-#####################################################
+################################################################################
 import sys
-import numpy as np
-import molmass
-import cvxpy as cp
-import more_itertools
 import re
 
-#####################################################
+import cvxpy as cp
+import numpy as np
+import molmass
+import more_itertools
+
+
+################################################################################
+# Utilties for handling chemical formulas in the context of mass spectrometry
+################################################################################
 
 def charged_mass(mass, charge):
+    """Calculates the mass of a charged ion given its uncharged mass and charge"""
     if type(mass) == str:
         mass = molmass.Formula(mass).isotope.mass
     em = (-1 * int(charge)) * molmass.ELECTRON.mass
@@ -18,6 +23,7 @@ def charged_mass(mass, charge):
     return(res)
 
 def uncharged_mass(mass, charge):
+    """Calculates the mass of an uncharged ion given its charged mass and charge"""
     if type(mass) == str:
         mass = molmass.Formula(mass).isotope.mass
     em = int(charge) * molmass.ELECTRON.mass
@@ -25,6 +31,7 @@ def uncharged_mass(mass, charge):
     return(res)
 
 def adduct_mass(mass, adduct):
+    """Calculates the mass of an ion with an adduct given its uncharged mass and adduct"""
     adduct_amends, adduct_charge = parse_adduct(adduct)
     adduct_atoms = ''.join([''.join([x[0] for i in range(x[1])]) for x in adduct_amends])
     if adduct_atoms != '':
@@ -37,6 +44,7 @@ def adduct_mass(mass, adduct):
 
 
 def parse_adduct(adduct):
+    """Parses an adduct string into a list of tuples of atoms and their amounts and the charge of the adduct"""
     d_lookup = {
         # return [(Atom, amount)], charge)
 
@@ -65,6 +73,7 @@ def parse_adduct(adduct):
     return(d_lookup[adduct])
 
 def to_adduct(form, adduct):
+    """Computes the chemical formula of the adduct version of a given formula"""
     fd = {x[0] : x[1] for x in molmass.Formula(form).composition()}
     adduct_amends = parse_adduct(adduct)[0]
     for (e, add_e) in adduct_amends:
@@ -77,6 +86,7 @@ def to_adduct(form, adduct):
     return(res)
 
 def from_adduct(form, adduct):
+    """Computes the chemical formula of the unadducted version of a given formula"""
     fd = {x[0] : x[1] for x in molmass.Formula(form).composition()}
     adduct_amends = parse_adduct(adduct)[0]
     for (e, add_e) in adduct_amends:
@@ -89,6 +99,7 @@ def from_adduct(form, adduct):
     return(res)
 
 def form_to_mz(form, charge, adduct = None):
+    """Computes the m/z of a charged ion given its chemical formula and charge"""
     if adduct != None:
         adduct_amends, charge = parse_adduct(adduct)
         form = to_adduct(form, adduct)
@@ -97,12 +108,14 @@ def form_to_mz(form, charge, adduct = None):
     return(res)
 
 def get_refs(ref_formula = "CHNOPSNa"):
+    """Returns the reference elements and their masses for a given reference formula"""
     comp = molmass.Formula(ref_formula).composition()
     ref_elements = [x[0] for x in comp]
     t_masses = np.array([molmass.Formula(x).isotope.mass for x in ref_elements])
     return((ref_elements, t_masses))
 
 def form_to_vec(form, ref_formula = "CHNOPSNa"):
+    """Converts a chemical formula to a vector of element counts"""
     (ref_elements, t_masses) = get_refs(ref_formula)
     fd = {x[0] : x[1] for x in molmass.Formula(form).composition()}
     for e in ref_elements:
@@ -111,6 +124,7 @@ def form_to_vec(form, ref_formula = "CHNOPSNa"):
     return(np.array([fd[k] for k in ref_elements]))
 
 def vec_to_form(vec, ref_formula = "CHNOPSNa"):
+    """Converts a vector of element counts to a chemical formula"""
     (ref_elements, t_masses) = get_refs(ref_formula)
     vec = [round(x, 2) for x in vec]
     res = ""
@@ -118,6 +132,7 @@ def vec_to_form(vec, ref_formula = "CHNOPSNa"):
     return(res)
 
 def find_best_form(mass, parent_form, tolerance_da = 0.005, charge = 0, verbose = False, cvxy_verbose = False, solver = 'SCIP', du_min = None):
+    """Finds the best chemical formula for a given mass and parent formula"""
     (ref_elements, t_masses) = get_refs(parent_form)
     if verbose:
         print(ref_elements)
@@ -178,6 +193,7 @@ def find_best_form(mass, parent_form, tolerance_da = 0.005, charge = 0, verbose 
 
  
 def generate_all_forms(parent_form):
+    """Generates all possible chemical formulas that are subformulas of a given parent formula"""
     l1 = [[atom for x in range(atom_num)] for atom, atom_num, _, _ in molmass.Formula(parent_form).composition().astuple()]
     l2 = list(np.concatenate(l1). flat)
 
@@ -190,6 +206,7 @@ def generate_all_forms(parent_form):
 
 
 def find_best_forms(mass, all_forms, tolerance_da = 0.005, charge = 0, verbose = False, du_min = None):
+    """Finds the best chemical formulas for a given mass from a list of possible formulas"""
     if charge != 0:
         mass = uncharged_mass(mass, charge)
     found_hits = [(x[0], x[1], abs(x[1] - mass)) for x in all_forms if abs(x[1] - mass) <= tolerance_da]
