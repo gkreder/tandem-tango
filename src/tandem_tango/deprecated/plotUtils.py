@@ -72,8 +72,7 @@ def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, f
     if normalize:
         intensities_a = intensities_a / intensities_a.max()
         intensities_b = intensities_b / intensities_b.max()
-        # intensities_a = np.array([x / max(intensities_a) for x in intensities_a])
-        # intensities_b = np.array([x / max(intensities_b) for x in intensities_b])
+
     if overrideColor == None:
         vlinesA = ax.vlines(mzs_a, 0, intensities_a, color = '#67a9cf', alpha = 0.9, linewidth = 0.75)
         vlinesB = ax.vlines(mzs_b, 0, -intensities_b, color = '#ef8a62', alpha = 0.9, linewidth = 0.75)
@@ -112,22 +111,15 @@ def mirrorPlot( mzs_a, mzs_b, intensities_a, intensities_b, formulas_a = None, f
                 int_t = -1 * int_t
             if formula_t != None:
                 texts.append(plt.text(mz_t, int_t, formula_t, ha = 'center', rotation = rotation))
-    # for i_row in range(labelCutoff):
-    #     mz_a, int_a, formula_a = packageA[i_row]
-    #     mz_b, int_b, formula_b = packageB[i_row]
-        
-    #     if formula_a != None:
-    #         texts.append(plt.text(mz_a, int_a, formula_a, ha = 'center', rotation = rotation))
-    #     if formula_b != None:
-    #         texts.append(plt.text(mz_b, -int_b, formula_b, ha = 'center', rotation = rotation))
-        
+       
     if len(texts) > 0:
         adjust_text(texts, arrowprops=dict(arrowstyle='-', color='black'), ha = 'center') # , add_objects = [vlinesA, vlinesB]
 
     ylim = ax.get_ylim()
     xlim = ax.get_xlim()
     if sideText != None:
-        plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), - ( ( ylim[1] - ylim[0] ) *  0.075 ), sideText, fontfamily = fontfamily)
+        # plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), - ( ( ylim[1] - ylim[0] ) *  0.075 ), sideText, fontfamily = fontfamily)
+        plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), 0.93, sideText, fontfamily = fontfamily, verticalalignment='top')
 
 
 
