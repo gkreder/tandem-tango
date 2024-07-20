@@ -67,7 +67,18 @@ def get_spectrum_polarity(spectrum : Dict) -> str:
             raise ValueError("Could not determine polarity of the mgf spectrum via Pyteomics")
     else:
         raise ValueError("Could not determine polarity of spectrum via Pyteomics")
-    
+
+# jrajniak Theoretically, we don't care about the MS level of the spectra: there could be a conceivable use case for comparing two
+# MS1 spectra. Also, MS2+ spectra do exist, and are for our purposes equivalent to MS2 spectra.
+# In the function below, I would handle this with descriptive warnings such as: 
+#
+# "Warning - Spectra have different MS levels: {x} for spectrum 1, {y} for spectrum 2"
+#
+# Also a special warning if trying to compare two MS1 spectra (which is allowable), but often likely to be a consequence of
+# off-by-one index errors:
+#
+# "Warning - Both spectra are MS level 1"
+
 def validate_spectrum_pair(spectra : List[Dict]) -> None:
     """Validate that a pair of spectra are the same polarity and are both MS2"""
     if len(set([get_spectrum_polarity(spec) for spec in spectra])) > 1:
