@@ -38,8 +38,6 @@ from tandem_tango.utils.reporting import (
 
 from tandem_tango.utils.plotting import summary_plots
 
-
-
 ################################################################################
 # Arguments for spectrum matching
 ################################################################################
@@ -53,7 +51,7 @@ def get_parser():
     input_1 = parser.add_mutually_exclusive_group(required=True)
     input_1.add_argument("--mzml_1", type = str, help = "Path to mzML file 1")
     input_1.add_argument("--mgf_1", type = str, help = "Path to MGF file 1")
-    parser.add_argument("--index_1", required = True, type = int, help = "Index of the spectrum in mzML/mgf file 1")     # jrajniak Why are we requiring an index if an mgf file is given as input? Is this handling mgf files with multiple spectra?
+    parser.add_argument("--index_1", required = True, type = int, help = "Index of the spectrum in mzML/mgf file 1")
 
     # Mutually exclusive input groups for the second spectrum
     input_2 = parser.add_mutually_exclusive_group(required=True)
@@ -61,13 +59,13 @@ def get_parser():
     input_2.add_argument("--mgf_2", type = str, help = "Path to MGF file 2")
     parser.add_argument("--index_2", required = True, type = int, help = "Index of the spectrum in mzML/mgf file 2")
 
-    parser.add_argument("--starting_index_1", default = 0, type = int, help = "The starting index (first spectrum) of the first mzML/mgf file. The index of the first spectrum in an mzML file is set to 0 by default, but may be set to 1 in certain vendor software such as Agilent MassHunter")     # jrajniak Changed wording here. What does index in mgf files refer to (cf. comment above)? Would the index of the first spectrum there be 0 or 1?
-    parser.add_argument("--starting_index_2", default = 0, type = int, help = "The starting index (first spectrum) of the second mzML/mgf file. The index of the first spectrum in an mzML file is set to 0 by default, but may be set to 1 in certain vendor software such as Agilent MassHunter")    #
-
+    parser.add_argument("--starting_index_1", default = 0, type = int, help = "The starting index (first spectrum) of the first mzML/mgf file is set to 0 by default, but may be 1 for certain vendor software such as Agilent MassHunter")
+    parser.add_argument("--starting_index_2", default = 0, type = int, help = "The starting index (first spectrum) of the second mzML/mgf file is set to 0 by default, but may be 1 for certain vendor software such as Agilent MassHunter")
+    
     # Required parameters for spectrum matching
     parser.add_argument("--quasi_x", required = True, type = float, help = "The quasicount scaling function x value")
     parser.add_argument("--quasi_y", required = True, type = float, help = "The quasicount scaling function y value")
-    parser.add_argument("--R", required = True, type = float, help = "The resolution parameter (match_accuracy = 100.0/R, resolution_clearance = 200.0/R, subformula_tolerance = 100.0/R)")
+    parser.add_argument("--R", required = True, type = float, help = "The resolution parameter R (match_accuracy = 100.0/R, resolution_clearance = 200.0/R, subformula_tolerance = 100.0/R)")
     parser.add_argument("--out_dir", required = True, type = str, help = "Output directory")
     
     # Parent formula is optional but recommended
@@ -93,7 +91,7 @@ def get_parser():
     parser.add_argument("--predefined_peaks", type = peak_list_input, default = None, help = "List of predefined peaks to filter for in the spectra")
 
     # Chemical formula fitting parameters
-    parser.add_argument('--du_min', type = float, default = -0.5, help = "The minimum degrees of unsaturation for molecular formula fitting")
+    parser.add_argument('--du_min', type = float, default = -0.5, help = "The minimum allowed degrees of unsaturation for molecular formula fitting")
 
     return parser
 
@@ -163,7 +161,7 @@ def run_matching(parent_mz : float, file_1 : str, file_2 : str,
         except SpectrumValidationError as e:
             logging.error(f"Spectrum {[file_1, file_2][i_spectrum]} scan {[index_1, index_2][i_spectrum]} failed post-filtering validation:\n\t{e}")
             sys.exit()
-
+    
     logging.info("Merging spectra by m/z matching")
     merged_spectrum = merge_spectra(spectra_filtered[0], spectra_filtered[1], match_acc)
     if parent_formula is not None:
