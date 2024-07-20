@@ -63,8 +63,8 @@ def get_parser():
     parser.add_argument("--starting_index_2", default = 0, type = int, help = "The starting index (first spectrum) of the second mzML/mgf file is set to 0 by default, but may be 1 for certain vendor software such as Agilent MassHunter")
     
     # Required parameters for spectrum matching
-    parser.add_argument("--quasi_x", required = True, type = float, help = "The quasicount scaling function x value")
-    parser.add_argument("--quasi_y", required = True, type = float, help = "The quasicount scaling function y value")
+    parser.add_argument("--quasi_x", required = True, type = float, help = "The quasicount scaling function x value (m/z multiplicative constant)")
+    parser.add_argument("--quasi_y", required = True, type = float, help = "The quasicount scaling function y value (m/z exponent; if set to 0, scaling function is a constant)")
     parser.add_argument("--R", required = True, type = float, help = "The resolution parameter R (match_accuracy = 100.0/R, resolution_clearance = 200.0/R, subformula_tolerance = 100.0/R)")
     parser.add_argument("--out_dir", required = True, type = str, help = "Output directory")
     
