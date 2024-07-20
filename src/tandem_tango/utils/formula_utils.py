@@ -9,7 +9,6 @@ import numpy as np
 import molmass
 import more_itertools
 
-
 ################################################################################
 # Utilties for handling chemical formulas in the context of mass spectrometry
 ################################################################################
@@ -166,7 +165,7 @@ def find_best_form(mass, parent_form, tolerance_da = 0.005, charge = 0, verbose 
     if error > tolerance_da:
         return(None, None, None)
     elif du_min != None:
-        val_table = {}
+        val_table = {}                                                        # jrajniak Can the lookup table  also handle isotopes (incl. "D")?
         for e in ["H", "F", "Cl", "Br", "I", "Li", "Na", "K", "Rb", "Cs"]:
             val_table[e] = 1
         for e in ["O", "S", "Se", "Be", "Mg", "Ca", "Sr", "Ba"]:
