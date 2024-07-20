@@ -16,6 +16,7 @@ from tandem_tango.utils.input_types import (
     suffix_input,
     bool_input
 )
+
 from tandem_tango.utils.spectrum_operations import (
     get_spectra_by_indices,
     validate_spectrum_pair,
@@ -52,7 +53,7 @@ def get_parser():
     input_1 = parser.add_mutually_exclusive_group(required=True)
     input_1.add_argument("--mzml_1", type = str, help = "Path to mzML file 1")
     input_1.add_argument("--mgf_1", type = str, help = "Path to MGF file 1")
-    parser.add_argument("--index_1", required = True, type = int, help = "Index of the spectrum in mzML/mgf file 1")
+    parser.add_argument("--index_1", required = True, type = int, help = "Index of the spectrum in mzML/mgf file 1")     # jrajniak Why are we requiring an index if an mgf file is given as input? Is this handling mgf files with multiple spectra?
 
     # Mutually exclusive input groups for the second spectrum
     input_2 = parser.add_mutually_exclusive_group(required=True)
@@ -60,8 +61,8 @@ def get_parser():
     input_2.add_argument("--mgf_2", type = str, help = "Path to MGF file 2")
     parser.add_argument("--index_2", required = True, type = int, help = "Index of the spectrum in mzML/mgf file 2")
 
-    parser.add_argument("--starting_index_1", default = 0, type = int, help = "The starting index (first spectrum) of the first mzML/mgf file. This is 1 for Agilent-generated mzML files")
-    parser.add_argument("--starting_index_2", default = 0, type = int, help = "The starting index (first spectrum) of the second mzML/mgf file. This is 1 for Agilent-generated mzML files")
+    parser.add_argument("--starting_index_1", default = 0, type = int, help = "The starting index (first spectrum) of the first mzML/mgf file. The index of the first spectrum in an mzML file is set to 0 by default, but may be set to 1 in certain vendor software such as Agilent MassHunter")     # jrajniak Changed wording here. What does index in mgf files refer to (cf. comment above)? Would the index of the first spectrum there be 0 or 1?
+    parser.add_argument("--starting_index_2", default = 0, type = int, help = "The starting index (first spectrum) of the second mzML/mgf file. The index of the first spectrum in an mzML file is set to 0 by default, but may be set to 1 in certain vendor software such as Agilent MassHunter")    #
 
     # Required parameters for spectrum matching
     parser.add_argument("--quasi_x", required = True, type = float, help = "The quasicount scaling function x value")
@@ -92,7 +93,7 @@ def get_parser():
     parser.add_argument("--predefined_peaks", type = peak_list_input, default = None, help = "List of predefined peaks to filter for in the spectra")
 
     # Chemical formula fitting parameters
-    parser.add_argument('--du_min', type = float, default = -0.5, help = "The DUMin value for molecular formula fitting")
+    parser.add_argument('--du_min', type = float, default = -0.5, help = "The minimum degrees of unsaturation for molecular formula fitting")
 
     return parser
 
