@@ -20,7 +20,11 @@ def H(x : np.array):
     # jrajniak
     if np.sum(x) == 0:
         return 0
-    h = -1 * np.sum( x * ( np.log(x) ) )
+    # la =  x * np.log(x) 
+    # h = -1 * np.sum( x * ( np.log(x) ) )
+    # If there's a zero value in x, set the log to 0 so x * log(x) = 0 instead of nan
+    log_array = np.nan_to_num(np.log(x), neginf=0)
+    h = -1 * np.sum(x * log_array)
     return(h)
 
 def calc_G2(a_i : np.array, b_i : np.array, S_A : float, S_B : float, M : int):
