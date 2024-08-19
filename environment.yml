@@ -1,6 +1,8 @@
 name: tandem-tango
 channels:
   - defaults
+  - conda-forge
+  - bioconda
 dependencies:
   - lxml=5.2.2
   - ca-certificates=2024.7.2
