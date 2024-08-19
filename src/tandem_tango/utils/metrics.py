@@ -68,7 +68,7 @@ def cosine_distance(p_Ai : np.array, p_Bi : np.array):
     num = (p_Ai * p_Bi).sum()
     denom = sqf(p_Ai) * sqf(p_Bi)
     # jrajniak
-    # The maximum possible cosine distance
+    # A nonsensical 2.0 value is returned if the denominator is 0
     if denom == 0:
         return 2.0
     csd = num / denom
