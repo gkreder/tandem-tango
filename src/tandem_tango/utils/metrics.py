@@ -83,6 +83,11 @@ def jensen_shanon_distance(p_Ai, p_Bi, H_pA, H_pB):
     jsd = H( ( 0.5 * ( p_Ai.fillna(0.0) + p_Bi.fillna(0.0) ) ) ) - ( 0.5 * H_pA ) - ( 0.5 *  H_pB  )
     return jsd
 
+def bhattacharyya_coef(p_Ai : np.array, p_Bi : np.array):
+    """Calculates the Bhattacharyya coefficient between two spectra given their normalized intensities (p_Ai, p_Bi)"""
+    bcc = np.sum(np.sqrt(p_Ai.fillna(0.0) * p_Bi.fillna(0.0)))
+    return bcc
+
 
 def calc_row_metrics(row : pd.Series, quasi_sums : List[float], M : int, join_type : Literal['Union', 'Intersection'],
                      suffixes : List[str] = ['A', 'B']):
@@ -162,6 +167,10 @@ def calc_join_metrics(merged_spectrum : pd.DataFrame, join_type : Literal['Union
     # Cosine distance
     csd = cosine_distance(*ps)
     metrics['Cosine Similarity'] = csd
+
+    # Bhattacharyya coefficient
+    bcc = bhattacharyya_coef(*ps)
+    metrics['Bhattacharyya Coefficient'] = bcc
 
     # Create columns for the individual row metrics that will be filled in the next step
     dfC[f"D^2_{join_type}"] = None

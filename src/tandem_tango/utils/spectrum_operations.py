@@ -143,6 +143,22 @@ def filter_spectrum_pdpl(spectrum : Dict, pdpl : List[float], match_acc : float,
             out_spectrum[key] = spectrum[key][filter]
     return out_spectrum
 
+def get_mz_match_int(spectrum : Dict, match_mz : float, match_acc : float, intensity_key : str = "intensity array") -> float:
+    """Find the intensity of the closest m/z in the spectrum within match_acc if any, None if no match. If multiple matches, returns the highest matching intensity"""
+    logging.debug(f"Getting m/z match from spectrum with match accuracy of {match_acc}")
+    hit_idxs = np.where(np.abs(spectrum['m/z array'] - match_mz) <= match_acc)[0]
+    hits = sorted(zip(spectrum['m/z array'][hit_idxs], spectrum[intensity_key][hit_idxs]), key = lambda x : x[1], reverse = True)
+    if len(hits) > 0:
+        return hits[0][1]
+    return None
+
+def get_mz_match_list(spectrum : Dict, match_mzs : List[float], match_acc : float, intensity_key : str = "intensity array") -> List[float]:
+    """For each mz in match_mzs finds the closest m/z in the spectrum within match_acc if any. Returns a list of the matched intensity values (None is no match)"""
+    logging.debug(f"Getting m/z matches from spectrum with match accuracy of {match_acc}")
+    match_mzs_array = np.array(match_mzs)
+    hits = [get_mz_match_int(spectrum, x, match_acc, intensity_key) for x in match_mzs_array]
+    return hits
+
 def filter_spectrum_quasi(spectrum : Dict, quasi_cutoff : float, filter_keys : List[str] = ['intensity array', 'm/z array', 'quasi array']) -> Dict:
     """Filter a spectrum by quasi counts along the given filter keys"""
     logging.debug(f"Filtering spectrum by quasi count cutoff of {quasi_cutoff}")

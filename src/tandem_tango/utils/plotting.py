@@ -161,7 +161,8 @@ def make_side_text(df_stats : pd.DataFrame, join_type : Literal['Intersection', 
                         "PP(p_A)" : "Perplexity_A",
                         "PP(p_B)" : "Perplexity_B",
                         "cos(p_A, p_B)" : "Cosine Similarity",
-                        "JSD(p_A, p_B)" : "JSD"
+                        "JSD(p_A, p_B)" : "JSD",
+                        "BC(p_A, p_B)" : "Bhattacharyya Coefficient",
                    }) -> str:
     """Creates a side text string for the plot based on the passed dataframe and join_type"""
     join_metrics = df_stats[join_type].dropna().to_dict()

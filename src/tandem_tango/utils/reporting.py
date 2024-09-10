@@ -96,10 +96,28 @@ def get_results_dfs(spectra : List[Dict],
 def write_results_xlsx(out_excel_file : str, df_stats : pd.DataFrame, df_intersection : pd.DataFrame, 
                        df_union : pd.DataFrame, spectra_df : List[pd.DataFrame]) -> None:
     """Writes the results of the comparison to an Excel file"""
-    writer = pd.ExcelWriter(out_excel_file, engine='xlsxwriter')
+    # writer = pd.ExcelWriter(out_excel_file, engine='xlsxwriter')
+    writer = pd.ExcelWriter(out_excel_file, engine="openpyxl")
     df_stats.to_excel(writer, sheet_name='Stats')
     df_intersection.to_excel(writer, sheet_name='Spectra_Intersection', index=False)
     df_union.to_excel(writer, sheet_name='Spectra_Union', index=False)
     for suffix, sdf in spectra_df.items():
         sdf.to_excel(writer, sheet_name=f'Spectrum_{suffix}', index=False)
+
+    # Adjust the column widths
+    for sheet_name in ['Stats', 'Spectra_Intersection', 'Spectra_Union'] + [f'Spectrum_{suffix}' for suffix, _ in spectra_df.items()]:
+        workbook = writer.book
+        worksheet = writer.sheets[sheet_name]
+        for column_cells in worksheet.columns:
+            max_length = 0
+            column = column_cells[0].column_letter
+            for cell in column_cells:
+                try:
+                    if cell.value:
+                        max_length = max(max_length, len(str(cell.value)))
+                except:
+                    pass
+            adjusted_width = (max_length + 2)  # Adjust the width slightly (for better readability)
+            worksheet.column_dimensions[column].width = adjusted_width
+
     writer.close()

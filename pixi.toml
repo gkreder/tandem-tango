@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "MS2 spectrum analysis and comparison"
 authors = ["gkreder <gk@reder.io>"]
 channels = ["conda-forge", "bioconda"]
-platforms = ["osx-arm64", "win-64", "linux-64"]
+platforms = ["osx-arm64", "win-64", "linux-64", "linux-aarch64"]
 
 [tasks]
 
@@ -19,9 +19,11 @@ pandas = ">=2.2.2,<2.3"
 seaborn = ">=0.13.2,<0.14"
 snakemake = ">=8.16.0,<8.17"
 ipdb = ">=0.13.13,<0.14"
+tqdm = ">=4.66.5,<4.67"
+openpyxl = ">=3.1.5,<4"
 
 [pypi-dependencies]
 pyteomics = ">=4.7.2"
 xlsxwriter = ">=3.2.0 "
 adjusttext = ">=1.2.0"
-prefect = "==2.16.3"
+prefect = "==3.0.0"
