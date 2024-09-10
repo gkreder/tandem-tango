@@ -125,6 +125,7 @@ def run_matching(parent_mz : float, file_1 : str, file_2 : str,
                  exclude_peaks : List[float] = None, predefined_peaks : List[float] = None,
                  du_min : float = -0.5, log_filename : str = None, verbosity : int = logging.INFO):
     
+
     # Set internal function parameters based on R
     match_acc = 100.0 / R
     res_clearance = 200.0 / R
@@ -135,6 +136,8 @@ def run_matching(parent_mz : float, file_1 : str, file_2 : str,
         logging_handlers = [logging.FileHandler(os.path.join(out_dir, log_filename), mode='w')]
         logging.basicConfig(level=verbosity, format='%(asctime)s - %(levelname)s - %(message)s',
                                 handlers=logging_handlers)
+    
+    logging.info(f"Run Matching called with arguments: {locals()}")
     logging.info("Reading spectra")
     spectra = get_spectra_by_indices([file_1, file_2], [index_1 - starting_index_1, index_2 - starting_index_2], gain_control)
     logging.info("Validating that spectra are valid and usable")
@@ -209,8 +212,8 @@ def main():
         logging_handlers.append(logging.FileHandler(os.path.join(args.out_dir, args.log_filename), mode='w'))
     logging.basicConfig(level=args.verbosity, format='%(asctime)s - %(levelname)s - %(message)s',
                             handlers=logging_handlers)
-    args_str = '\n'.join([f"\t{k} : {v}" for k,v in vars(args).items()])
-    logging.info(f"Args: {args_str}")
+    # args_str = '\n'.join([f"\t{k} : {v}" for k,v in vars(args).items()])
+    # logging.info(f"Args: {args_str}")
     args_dict = prep_args(args)
     run_matching(**args_dict)
 
