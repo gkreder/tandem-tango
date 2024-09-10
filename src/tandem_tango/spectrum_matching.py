@@ -135,7 +135,8 @@ def run_matching(parent_mz : float, file_1 : str, file_2 : str,
     if log_filename is not None:
         logging_handlers = [logging.FileHandler(os.path.join(out_dir, log_filename), mode='w')]
         logging.basicConfig(level=verbosity, format='%(asctime)s - %(levelname)s - %(message)s',
-                                handlers=logging_handlers)
+                                handlers=logging_handlers,
+                                force=True)
     
     logging.info(f"Run Matching called with arguments: {locals()}")
     logging.info("Reading spectra")
@@ -163,7 +164,7 @@ def run_matching(parent_mz : float, file_1 : str, file_2 : str,
             validate_spectrum_counts(spectrum, min_spectrum_quasi_sum, min_total_peaks)
         except SpectrumValidationError as e:
             logging.error(f"Spectrum {[file_1, file_2][i_spectrum]} scan {[index_1, index_2][i_spectrum]} failed post-filtering validation:\n\t{e}")
-            sys.exit()
+            return None
     
     logging.info("Merging spectra by m/z matching")
     merged_spectrum = merge_spectra(spectra_filtered[0], spectra_filtered[1], match_acc)
@@ -198,6 +199,7 @@ def run_matching(parent_mz : float, file_1 : str, file_2 : str,
                     out_dir=out_dir,
                     file_prefix=out_prefix,
                   log_plots=log_plots)
+    logging.info("Completed spectrum matching")
 
 ################################################################################
 # For command line usage
@@ -207,6 +209,7 @@ def main():
     parser = get_parser()
     args = parser.parse_args()
     os.makedirs(args.out_dir, exist_ok = True)
+    # Set up streaming log handler to show log in terminal in addition to saved log output
     logging_handlers = [logging.StreamHandler()]
     if args.log_file:
         logging_handlers.append(logging.FileHandler(os.path.join(args.out_dir, args.log_filename), mode='w'))
