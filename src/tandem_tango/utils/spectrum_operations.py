@@ -84,8 +84,13 @@ def validate_spectrum_pair(spectra : List[Dict]) -> None:
     if len(set([get_spectrum_polarity(spec) for spec in spectra])) > 1:
         raise SpectrumValidationError("Spectra have different polarities")
     if np.all(np.array(['ms level' in spec.keys() for spec in spectra])):
-        if set([spec['ms level'] for spec in spectra]) != {2}:
-            raise SpectrumValidationError("Spectra are not both MS2")
+        ms_levels = set([spec['ms level'] for spec in spectra])
+        if len(ms_levels) > 1:
+            logging.warning(f"Spectra have different MS levels: ({[x for x in ms_levels]})")
+        if ms_levels == {1}:
+            logging.warning(f"Both spectra are MS level 1")
+        # if set([spec['ms level'] for spec in spectra]) != {2}:
+        #     raise SpectrumValidationError("Spectra are not both MS2")
     else:
         logging.warning("Could not validate MS level of spectra - assuming both are MS2")
     
