@@ -1,3 +1,5 @@
+*launch.json
+
 # pixi environments
 .pixi
 *.egg-info
