@@ -94,7 +94,8 @@ def get_results_dfs(spectra : List[Dict],
 
 
 def write_results_xlsx(out_excel_file : str, df_stats : pd.DataFrame, df_intersection : pd.DataFrame, 
-                       df_union : pd.DataFrame, spectra_df : List[pd.DataFrame]) -> None:
+                       df_union : pd.DataFrame, spectra_df : List[pd.DataFrame],
+                       df_params : pd.DataFrame) -> None:
     """Writes the results of the comparison to an Excel file"""
     # writer = pd.ExcelWriter(out_excel_file, engine='xlsxwriter')
     writer = pd.ExcelWriter(out_excel_file, engine="openpyxl")
@@ -103,6 +104,7 @@ def write_results_xlsx(out_excel_file : str, df_stats : pd.DataFrame, df_interse
     df_union.to_excel(writer, sheet_name='Spectra_Union', index=False)
     for suffix, sdf in spectra_df.items():
         sdf.to_excel(writer, sheet_name=f'Spectrum_{suffix}', index=False)
+    df_params.to_excel(writer, sheet_name='Parameters', index=False)
 
     # Adjust the column widths
     for sheet_name in ['Stats', 'Spectra_Intersection', 'Spectra_Union'] + [f'Spectrum_{suffix}' for suffix, _ in spectra_df.items()]:

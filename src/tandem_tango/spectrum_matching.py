@@ -8,6 +8,7 @@ from typing import List
 
 import argparse
 import logging
+import pandas as pd
 
 from tandem_tango.utils.input_types import (
     peak_list_input,
@@ -183,7 +184,13 @@ def run_matching(parent_mz : float, file_1 : str, file_2 : str,
 
     logging.info("Writing results to Excel")
     out_xlsx = os.path.join(out_dir, f"{out_prefix}.xlsx")
-    write_results_xlsx(out_xlsx, df_stats, df_intersection, df_union, spectra_df)
+
+    # Capture function params for logging to output file
+    func_params = inspect.signature(run_matching).parameters
+    runtime_params = {k: v for k, v in locals().items() if k in func_params}
+    df_params = pd.DataFrame(list(runtime_params.items()), columns=['Parameter', 'Value'])
+
+    write_results_xlsx(out_xlsx, df_stats, df_intersection, df_union, spectra_df, df_params = df_params)
     logging.info("Creating summary plots")
     # The gray spectra are the original spectra that will be used in the plotting
     gray_spectra = [filter_and_convert_spectrum_complete(spectrum, **{
