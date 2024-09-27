@@ -106,6 +106,7 @@ def mirror_plot(mzs_a : List[float], mzs_b : List[float],
     ax.get_yaxis().set_major_formatter(my_formatter)
     
     ylim = ax.get_ylim()
+    xlim = ax.get_xlim()
     t_adjust = (ylim[1] - ylim[0]) * 0.02
 
     label_cutoff = 10
@@ -130,10 +131,13 @@ def mirror_plot(mzs_a : List[float], mzs_b : List[float],
     if len(texts) > 0:
         adjust_text(texts, arrowprops=dict(arrowstyle='-', color='black'), ha='center')
 
-    ylim = ax.get_ylim()
-    xlim = ax.get_xlim()
+    
     if side_text is not None:
-        plt.text(xlim[1] + ((xlim[1] - xlim[0]) * 0.025), 0.93, side_text, fontfamily=fontfamily, verticalalignment='top')
+        ylimMax = max([abs(x) for x in ylim])
+        ylimRange = ylim[1] - ylim[0]
+        plt.text(xlim[1] + ((xlim[1] - xlim[0]) * 0.025), ylimMax - ( 0.08 * ylimRange ), side_text, fontfamily=fontfamily, verticalalignment='top')
+        
+        
 
     plt.xlabel('m/z')
     if normalize:
@@ -213,7 +217,8 @@ def plot_result(out_file : str, plot_title : str, df_stats,
                                        formulas_a=None,
                                        formulas_b=None,
                                        normalize=normalize,
-                                       side_text = None,
+                                    #    side_text = None,
+                                        side_text=side_text,
                                        override_color="gray")
     else:
         fig, ax = plt.subplots(figsize = (12,9))
@@ -283,7 +288,8 @@ def summary_plots(df_stats, df_intersection, df_union, gray_spectra,
                 intensities_b=ints_b,
                 **gray_plot_data,
                 label_x = 'm/z',
-                label_y = 'Relative intensity (quasicounts)',
+                label_y = 'Log10 absolute intensity (quasicounts)' if log_transform else 'Relative intensity (quasicounts)',
                 join_type = join_type,
-                suffixes = plot_suffixes,)
+                suffixes = plot_suffixes,
+                normalize = False if log_transform else True)
             logger.setLevel(verbosity)
