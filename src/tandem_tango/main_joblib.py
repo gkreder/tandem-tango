@@ -42,7 +42,7 @@ def run_spectrum_matching_task(run_args_cmd_line):
         spectrum_matching.run_matching(**run_args_func)
         return True # successful run
     except Exception as e:
-        print('hello!!!!!!')
+        print('Task failed!')
         logging.error(f"Error in task: {e}")
         return False # failed run
     finally:

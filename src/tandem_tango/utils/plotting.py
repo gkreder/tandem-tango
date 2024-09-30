@@ -133,9 +133,10 @@ def mirror_plot(mzs_a : List[float], mzs_b : List[float],
 
     
     if side_text is not None:
-        ylimMax = max([abs(x) for x in ylim])
-        ylimRange = ylim[1] - ylim[0]
-        plt.text(xlim[1] + ((xlim[1] - xlim[0]) * 0.025), ylimMax - ( 0.08 * ylimRange ), side_text, fontfamily=fontfamily, verticalalignment='top')
+        # ylimMax = max([abs(x) for x in ylim])
+        # ylimRange = ylim[1] - ylim[0]
+        # plt.text(xlim[1] + ((xlim[1] - xlim[0]) * 0.025), ylimMax - ( 0.08 * ylimRange ), side_text, fontfamily=fontfamily, verticalalignment='top')
+        plt.text(1.025, 0.87, side_text, fontfamily=fontfamily, transform=ax.transAxes, verticalalignment='top')
         
         
 
@@ -203,7 +204,8 @@ def plot_result(out_file : str, plot_title : str, df_stats,
                 label_y : str = 'Intensity',
                 join_type = Literal['Intersection', 'Union'],
                 normalize : bool = True,
-                suffixes : List[str] = ['A', 'B']):
+                suffixes : List[str] = ['A', 'B'],
+                parent_mz : float = None):
     """Plots a spectrum comparison result with optional gray spectra fragments in the background"""
     
     side_text = make_side_text(df_stats, join_type)
@@ -237,9 +239,16 @@ def plot_result(out_file : str, plot_title : str, df_stats,
     ylim = ax.get_ylim()
     xlim = ax.get_xlim()
     ylimMax = max([abs(x) for x in ylim])
+    xlimMax = max([abs(x) for x in xlim])
     ax.set_ylim([-ylimMax, ylimMax])  # Set symmetric y-limits
+    # Set x-limit to be 10% larger than the parent_mz (if provided) else 10% larger than maximum m/z
+    if parent_mz:
+        ax.set_xlim([0, 1.1 * parent_mz])
+    else:
+        ax.set_xlim([0, 1.1 * xlimMax])  
     ylimRange = ylim[1] - ylim[0]
-    plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), ylimMax - ( 0.050 * ylimRange ), f"{join_type}:", fontsize = 20)
+    # plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), ylimMax - ( 0.050 * ylimRange ), f"{join_type}:", fontsize = 20)
+    plt.text(1.025, 0.95, f"{join_type}:", fontsize = 20, transform=ax.transAxes, verticalalignment='top')
     plt.text(0.01, 0.98, f"Spectrum {suffixes[0]}", 
          fontsize=15, fontfamily='DejaVu Sans', 
          transform=ax.transAxes, verticalalignment='top')
@@ -259,7 +268,8 @@ def summary_plots(df_stats, df_intersection, df_union, gray_spectra,
                   file_prefix : str = 'spectrum_comparison',
                   out_dir : str = '', 
                   verbosity : int = logging.INFO,
-                  logger : logging.Logger = logging.getLogger()):
+                  logger : logging.Logger = logging.getLogger(),
+                  parent_mz : float = None):
     """Generates summary plots for the passed dataframes and spectra"""
     log_transforms = [False, True] if log_plots else [False]
     for join_type, df_plot in zip(['Intersection', 'Union'], [df_intersection, df_union]):
@@ -296,5 +306,6 @@ def summary_plots(df_stats, df_intersection, df_union, gray_spectra,
                 label_y = 'Log10 absolute intensity (quasicounts)' if log_transform else 'Relative intensity (quasicounts)',
                 join_type = join_type,
                 suffixes = plot_suffixes,
-                normalize = False if log_transform else True)
+                normalize = False if log_transform else True,
+                parent_mz = parent_mz)
             logger.setLevel(verbosity)

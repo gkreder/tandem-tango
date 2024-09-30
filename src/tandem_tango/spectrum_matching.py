@@ -205,7 +205,8 @@ def run_matching(parent_mz : float, file_1 : str, file_2 : str,
                   plot_suffixes=suffixes,
                     out_dir=out_dir,
                     file_prefix=out_prefix,
-                  log_plots=log_plots)
+                  log_plots=log_plots,
+                  parent_mz = parent_mz,)
     logging.info("Completed spectrum matching")
 
 ################################################################################
