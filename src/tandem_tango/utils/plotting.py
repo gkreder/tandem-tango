@@ -240,10 +240,10 @@ def plot_result(out_file : str, plot_title : str, df_stats,
     ax.set_ylim([-ylimMax, ylimMax])  # Set symmetric y-limits
     ylimRange = ylim[1] - ylim[0]
     plt.text(xlim[1] + ( ( xlim[1] - xlim[0] ) *  0.025 ), ylimMax - ( 0.050 * ylimRange ), f"{join_type}:", fontsize = 20)
-    plt.text(0.01, 0.99, f"Spectrum {suffixes[1]}", 
+    plt.text(0.01, 0.98, f"Spectrum {suffixes[0]}", 
          fontsize=15, fontfamily='DejaVu Sans', 
          transform=ax.transAxes, verticalalignment='top')
-    plt.text(0.01, 0.01, f"Spectrum {suffixes[1]}", 
+    plt.text(0.01, 0.02, f"Spectrum {suffixes[1]}", 
          fontsize=15, fontfamily='DejaVu Sans', 
          transform=ax.transAxes, verticalalignment='bottom')
     plt.title(f"{plot_title}")

@@ -195,6 +195,8 @@ def filter_spectrum_peak_exclusion(spectrum : Dict, exclude_peaks : List[float],
         # Allow exact matches to pass through the filter
         exact_matches = np.isin(spectrum['m/z array'], peak_exclusion_array)
         filter = filter | exact_matches
+    filtered_mzs = out_spectrum['m/z array'][~filter]
+    logging.debug(f"\tFiltering {filtered_mzs}")
     for key in filter_keys:
         if key in out_spectrum:
             out_spectrum[key] = spectrum[key][filter]
@@ -219,12 +221,15 @@ def filter_spectrum_res_clearance(spectrum : Dict, res_clearance : float, sort_i
         out_spectrum = sort_spectrum_intensity(spectrum, filter_keys)
     else:
         out_spectrum = copy.deepcopy(spectrum)
-    mzs = [x for x in spectrum['m/z array']]
-    for i_mz, mz in enumerate(mzs):
+    mzs_to_filter = [x for x in spectrum['m/z array']]
+    while len(mzs_to_filter) > 0:
+        mz = mzs_to_filter.pop(0)
         out_spectrum = filter_spectrum_peak_exclusion(out_spectrum, exclude_peaks=[mz],
                                                       match_acc=res_clearance,
                                                       filter_keys=filter_keys,
                                                       keep_exact=True)
+        mzs_to_filter = [x for x in mzs_to_filter if x in out_spectrum['m/z array']]
+
     return out_spectrum
 
 def filter_and_convert_spectrum_complete(spectrum : Dict, 
