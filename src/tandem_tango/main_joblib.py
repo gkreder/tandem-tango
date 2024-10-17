@@ -16,6 +16,8 @@ from tandem_tango import spectrum_matching
 from joblib import Parallel, delayed
 from memory_profiler import profile
 
+from tandem_tango.utils.input_types import make_out_prefix
+
 ################################################################################
 # Spectrum Matching
 ################################################################################
@@ -30,9 +32,15 @@ def run_spectrum_matching_task(run_args_cmd_line):
     try:
         parser = spectrum_matching.get_parser()
         run_args = parser.parse_args(run_args_cmd_line)
-        run_args_prepped = spectrum_matching.prep_args(run_args)
-        run_args_func = {k: v for k, v in run_args_prepped.items() if k in inspect.signature(spectrum_matching.run_matching).parameters}
-        
+        # run_args_prepped = spectrum_matching.prep_args(run_args)
+        run_args_func = {k: v for k, v in vars(run_args).items() if k in inspect.signature(spectrum_matching.run_matching).parameters}
+        if run_args_func['out_prefix'] is None:
+            run_args_func['out_prefix'] = make_out_prefix(run_args_func['file_1'],
+                                                          run_args_func['file_2'],
+                                                          run_args_func['index_1'],
+                                                          run_args_func['index_2'],
+                                                          run_args_func['parent_formula'])
+            
         os.makedirs(run_args_func['out_dir'], exist_ok = True)
         # Set up logging within the task explicitly
         log_file = os.path.join(run_args_func['out_dir'], f"{run_args_func['out_prefix']}.log")
@@ -44,6 +52,7 @@ def run_spectrum_matching_task(run_args_cmd_line):
         return True # successful run
     except Exception as e:
         print('Task failed!')
+        print(e)
         logging.error(f"Error in task: {e}")
         return False # failed run
     finally:

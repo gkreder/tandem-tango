@@ -5,6 +5,7 @@ import os
 import sys
 import inspect
 from typing import List
+from pathlib import Path
 
 import argparse
 import logging
@@ -15,7 +16,8 @@ from tandem_tango.utils.input_types import (
     formula_input,
     logging_level_input,
     suffix_input,
-    bool_input
+    bool_input,
+    make_out_prefix,
 )
 
 from tandem_tango.utils.spectrum_operations import (
@@ -49,20 +51,24 @@ def get_parser():
     parser.add_argument("--parent_mz", required = True, type = float, help = "Parent m/z value")
 
     # Mutually exclusive input groups for the first spectrum
-    input_1 = parser.add_mutually_exclusive_group(required=True)
-    input_1.add_argument("--mzml_1", type = str, help = "Path to mzML file 1")
-    input_1.add_argument("--mgf_1", type = str, help = "Path to MGF file 1")
+    # input_1 = parser.add_mutually_exclusive_group(required=True)
+    # input_1.add_argument("--mzml_1", type = str, help = "Path to mzML file 1")
+    # input_1.add_argument("--mgf_1", type = str, help = "Path to MGF file 1")
+    parser.add_argument('--file_1', type = str, help = "Path to mzML or MGF file 1")
     parser.add_argument("--index_1", required = True, type = int, help = "Index of the spectrum in mzML/mgf file 1")
 
     # Mutually exclusive input groups for the second spectrum
-    input_2 = parser.add_mutually_exclusive_group(required=True)
-    input_2.add_argument("--mzml_2", type = str, help = "Path to mzML file 2")
-    input_2.add_argument("--mgf_2", type = str, help = "Path to MGF file 2")
+    # input_2 = parser.add_mutually_exclusive_group(required=True)
+    # input_2.add_argument("--mzml_2", type = str, help = "Path to mzML file 2")
+    # input_2.add_argument("--mgf_2", type = str, help = "Path to MGF file 2")
+    parser.add_argument('--file_2', type = str, help = "Path to mzML or MGF file 2")
     parser.add_argument("--index_2", required = True, type = int, help = "Index of the spectrum in mzML/mgf file 2")
 
     parser.add_argument("--starting_index_1", default = 0, type = int, help = "The starting index (first spectrum) of the first mzML/mgf file is set to 0 by default, but may be 1 for certain vendor software such as Agilent MassHunter")
     parser.add_argument("--starting_index_2", default = 0, type = int, help = "The starting index (first spectrum) of the second mzML/mgf file is set to 0 by default, but may be 1 for certain vendor software such as Agilent MassHunter")
     
+    parser.add_argument("--gain_control", default = False, type = bool_input, help = "If True, perform gain control adjustment")
+
     # Required parameters for spectrum matching
     parser.add_argument("--quasi_x", required = True, type = float, help = "The quasicount scaling function x value (m/z multiplicative constant)")
     parser.add_argument("--quasi_y", required = True, type = float, help = "The quasicount scaling function y value (m/z exponent; if set to 0, scaling function is a constant)")
@@ -71,19 +77,9 @@ def get_parser():
     
     # Parent formula is optional but recommended
     parser.add_argument("--parent_formula", type = formula_input)
-    
-    # Optional parameters involving logging, script behavior, and plotting
-    parser.add_argument("--verbosity", default = logging.INFO, type = logging_level_input, help = "Logging verbosity")
-    parser.add_argument("--log_file", default = True, type = bool_input, help = "If True, save log to file")
-    parser.add_argument("--log_filename", default = "spectrum_matching.log", type = str, help = "Name of the log file (saved to output directory)")
-    parser.add_argument("--out_prefix", default = "spectrum_comparison", type = str, help = "Prefix to append to output files")
-    parser.add_argument("--gain_control", default = False, type = bool_input, help = "If True, perform gain control adjustment")
-    parser.add_argument("--log_plots", default = True, type = bool_input, help = "If True, create log intensity plots")
-    parser.add_argument("--suffixes", type = suffix_input, default = ['A', 'B'], help = "Comma-separated list of suffixes for the spectra (e.g. A,B treats the first spectrum as spectrum 'A' and the second as spectrum 'B')")
-    parser.add_argument("--plot_prefixes", type = suffix_input, default = ['Spectrum 1', 'Spectrum 2'], help = "Comma-separated list of spectrum prefixes for plot titles")
-    
+
     # Optional spectrum filtering parameters
-    parser.add_argument("--abs_cutoff", type = float, default = None, help = "Absolute intensity cutoff")
+    parser.add_argument("--abs_cutoff", type = float, default = None, help = "Absolute intensity cutoff (raw counts)")
     parser.add_argument("--rel_cutoff", type = float, default = None, help = "Relative intensity cutoff")
     parser.add_argument("--quasi_cutoff", type = float, default = 5.0, help = "Quasicount intensity cutoff")
     parser.add_argument("--min_total_peaks", type = int, default = 2, help = "Minimum number of peaks required in a spectrum")
@@ -93,39 +89,58 @@ def get_parser():
 
     # Chemical formula fitting parameters
     parser.add_argument('--du_min', type = float, default = -0.5, help = "The minimum allowed degrees of unsaturation for molecular formula fitting")
+    
+    # Optional parameters involving logging, script behavior, and plotting
+    parser.add_argument("--verbosity", default = logging.INFO, type = logging_level_input, help = "Logging verbosity")
+    parser.add_argument("--log_file", default = True, type = bool_input, help = "If True, save log to file")
+    parser.add_argument("--log_filename", default = None, type = str, help = "Name of the log file (saved to output directory). Defaults to the out_prefix with a .log extension")
+    parser.add_argument("--out_prefix", default = None, type = str, help = "Prefix to append to output files (e.g. `output` would create summary files named 'output.xlsx' in the output directory). Defaults to <filename_1>_Scan_<index_1>_vs_<filename_2>_Scan_<index_2>_<Formula/noFormula>")
+    parser.add_argument("--log_plots", default = True, type = bool_input, help = "If True, create log intensity plots")
+    parser.add_argument("--spectrum_suffixes", type = suffix_input, default = ['A', 'B'], help = "Comma-separated list of suffixes for the spectra (e.g. A,B treats the first spectrum as spectrum 'A' and the second as spectrum 'B')")
+    parser.add_argument("--plot_prefixes", type = suffix_input, default = None, help = "Comma-separated list of spectrum prefixes for plot titles (e.g. `Spectrum 1,Spectrum 2`) will reference 'Spectrum 1' and 'Spectrum 2' in the displayed plot titles. Defaults to the base filenames of the input mzML/mgf files")
 
     return parser
 
-def prep_args(args : argparse.Namespace):
-    """Prepares the arguments for the spectrum matching function"""
+# def prep_args(args : argparse.Namespace):
+#     """Prepares the arguments for the spectrum matching function"""
 
-    # Get the input files and convert them to 'file' arguments instead of 'mzml'/'mgf'
-    input_files_all_formats = {k : v for k, v in vars(args).items() if k.startswith('mzml_') or k.startswith('mgf_')}
-    input_files = {f"file_{k.split('_')[-1]}" : v for k,v in input_files_all_formats.items() if v is not None}
-    if len(input_files) != 2:
-        raise ValueError("Exactly two input files must be specified")
-    modified_args_dict = {
-        **{k:v for k,v in vars(args).items() if k in inspect.signature(run_matching).parameters},
-        **input_files
-        }
-    return modified_args_dict
+#     # Get the input files and convert them to 'file' arguments instead of 'mzml'/'mgf'
+#     input_files_all_formats = {k : v for k, v in vars(args).items() if k.startswith('mzml_') or k.startswith('mgf_')}
+#     input_files = {f"file_{k.split('_')[-1]}" : v for k,v in input_files_all_formats.items() if v is not None}
+#     if len(input_files) != 2:
+#         raise ValueError("Exactly two input files must be specified")
+#     modified_args_dict = {
+#         **{k:v for k,v in vars(args).items() if k in inspect.signature(run_matching).parameters},
+#         **input_files
+#         }
+#     return modified_args_dict
 
 ################################################################################
 # Main spectrum matching function
 ################################################################################
-def run_matching(parent_mz : float, file_1 : str, file_2 : str, 
-                 index_1 : int, index_2 : int, quasi_x : float,
-                 quasi_y : float, R : float, out_dir : str, 
-                 parent_formula : str = None, out_prefix : str = None, 
+def run_matching(file_1 : str, file_2 : str, 
+                 index_1 : int, index_2 : int, parent_mz : float, 
+                 quasi_x : float, quasi_y : float, R : float, 
+                 out_dir : str, 
+                 parent_formula : str = None,  
                  starting_index_1 : int = 0, starting_index_2 : int = 0,
-                 gain_control : bool = False, log_plots : bool = True,
-                 suffixes : List[str] = ['A', 'B'], plot_prefixes : List[str] = ['Spectrum 1', 'Spectrum 2'],
                  abs_cutoff : float = None,
                  rel_cutoff : float = None, quasi_cutoff : float = None,
                  min_total_peaks : int = None, min_spectrum_quasi_sum : float = None,
+                 du_min : float = -0.5, 
                  exclude_peaks : List[float] = None, predefined_peaks : List[float] = None,
-                 du_min : float = -0.5, log_filename : str = None, verbosity : int = logging.INFO):
+                 gain_control : bool = False, log_plots : bool = True, out_prefix : str = None,
+                 spectrum_suffixes : List[str] = ['A', 'B'], plot_prefixes : List[str] = None,
+                 log_filename : str = None, verbosity : int = logging.INFO):
     
+    # Set the output prefix if not specified
+    if out_prefix is None:
+        out_prefix = make_out_prefix(file_1, file_2, index_1, index_2, parent_formula)
+    if log_filename is None:
+        log_filename = f"{out_prefix}.log"
+    if plot_prefixes is None:
+        plot_prefixes = [Path(file).stem for file in [file_1, file_2]]
+        
 
     # Set internal function parameters based on R
     match_acc = 100.0 / R
@@ -177,7 +192,7 @@ def run_matching(parent_mz : float, file_1 : str, file_2 : str,
     logging.info("Calculating metrics")
     metrics = calc_spectra_metrics(formula_spectrum)
     logging.debug(f"Metrics:\n {metrics}")
-    df_stats, df_intersection, df_union, spectra_df = get_results_dfs(spectra, metrics, parent_mz, quasi_x, quasi_y, parent_formula, suffixes)
+    df_stats, df_intersection, df_union, spectra_df = get_results_dfs(spectra, metrics, parent_mz, quasi_x, quasi_y, parent_formula, spectrum_suffixes)
     logging.debug(f"Stats:\n {df_stats}")
     logging.debug(f"Intersection:\n {df_intersection}")
     logging.debug(f"Union:\n {df_union}")
@@ -202,7 +217,7 @@ def run_matching(parent_mz : float, file_1 : str, file_2 : str,
     summary_plots(df_stats, df_intersection, df_union, gray_spectra, 
                   title_suffixes=plot_prefixes,
                   scan_indices=[index_1, index_2],
-                  plot_suffixes=suffixes,
+                  plot_suffixes=spectrum_suffixes,
                     out_dir=out_dir,
                     file_prefix=out_prefix,
                   log_plots=log_plots,
@@ -225,8 +240,10 @@ def main():
                             handlers=logging_handlers)
     # args_str = '\n'.join([f"\t{k} : {v}" for k,v in vars(args).items()])
     # logging.info(f"Args: {args_str}")
-    args_dict = prep_args(args)
-    run_matching(**args_dict)
+    
+    # args_dict = prep_args(args)
+    # run_matching(**args_dict)
+    run_matching(**vars(args))
 
 if __name__ == "__main__":
     main()

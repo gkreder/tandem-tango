@@ -4,12 +4,22 @@
 import logging
 import argparse
 import os
+from pathlib import Path
+import numpy as np
 
 import molmass
 
 ################################################################################
 # Auxiliary functions for parsing command-line inputs
 ################################################################################
+def make_out_prefix(file_1, file_2, index_1, index_2, parent_formula):
+    file_bases = [Path(file).stem for file in [file_1, file_2]]
+    out_prefix = f"{file_bases[0]}_Scan_{index_1}_vs_{file_bases[1]}_Scan_{index_2}"
+    if parent_formula is not None:
+        out_prefix += "_Formula"
+    else:
+        out_prefix += "_noFormula"
+    return out_prefix
 
 def bool_input(value):
     """Parses a boolean from the passed value"""
