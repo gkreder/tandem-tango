@@ -62,7 +62,8 @@ def run_spectrum_matching_task(run_args_cmd_line):
 ################################################################################
 # Spectrum Matching Flow
 ################################################################################
-def spectrum_matching_flow(input_file: str, max_workers: int, no_parallel: bool = False):
+def spectrum_matching_flow(input_file: str, max_workers: int, 
+                           no_parallel: bool = False,):
     if not os.path.exists(input_file):
         raise FileNotFoundError(f"File {input_file} not found")
     elif os.path.splitext(input_file)[1] != ".tsv":
@@ -83,7 +84,7 @@ def spectrum_matching_flow(input_file: str, max_workers: int, no_parallel: bool 
     #     )
     else:
         # Parallel execution using joblib with tqdm for progress tracking
-        results = Parallel(n_jobs=max_workers, backend="loky")(
+        results = Parallel(n_jobs=max_workers)(
             delayed(run_spectrum_matching_task)(cmd) for cmd in tqdm(runs_args_cmd_line, desc="Processing Spectra")
         )
 

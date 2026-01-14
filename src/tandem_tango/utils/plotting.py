@@ -4,6 +4,7 @@
 import os
 from typing import List, Dict, Literal
 import logging
+import uuid
 
 import matplotlib.axes
 import matplotlib.figure
@@ -258,7 +259,11 @@ def plot_result(out_file : str, plot_title : str, df_stats,
     plt.title(f"{plot_title}")
     plt.ylabel(label_y)
     plt.xlabel(label_x)
-    plt.savefig(out_file, bbox_inches = 'tight')
+    plt.savefig(out_file, bbox_inches = 'tight') 
+    # Debugging the file overwrite issue
+    # out_file_test = os.path.join(os.path.dirname(out_file), f"{uuid.uuid4()}.svg")
+    # plt.savefig(out_file_test, bbox_inches = 'tight')
+    # os.rename(out_file_test, out_file)
     plt.close()
 
 def summary_plots(df_stats, df_intersection, df_union, gray_spectra, 
@@ -269,7 +274,8 @@ def summary_plots(df_stats, df_intersection, df_union, gray_spectra,
                   out_dir : str = '', 
                   verbosity : int = logging.INFO,
                   logger : logging.Logger = logging.getLogger(),
-                  parent_mz : float = None):
+                  parent_mz : float = None,
+                  ):
     """Generates summary plots for the passed dataframes and spectra"""
     log_transforms = [False, True] if log_plots else [False]
     for join_type, df_plot in zip(['Intersection', 'Union'], [df_intersection, df_union]):
